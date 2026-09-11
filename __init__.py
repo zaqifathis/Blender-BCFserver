@@ -1,11 +1,14 @@
 if "bpy" in locals():
     import importlib
 
+    importlib.reload(log)
+    importlib.reload(bcf_api)
+    importlib.reload(session)
     importlib.reload(properties)
     importlib.reload(operators)
     importlib.reload(panel)
 else:
-    from . import properties, operators, panel
+    from . import log, bcf_api, session, properties, operators, panel
 
 import bpy
 
@@ -13,8 +16,12 @@ classes = (
     properties.BCFConnectProperties,
     properties.BCFConnectPreferences,
     operators.BCF_OT_connect,
+    operators.BCF_OT_disconnect,
+    operators.BCF_OT_log_clear,
+    operators.BCF_OT_log_copy,
     operators.BCF_OT_start_ws_server,
     panel.BCF_PT_main_panel,
+    panel.BCF_PT_log_panel,
 )
 
 
@@ -25,6 +32,8 @@ def register():
 
 
 def unregister():
+    operators.stop_watching()
+    session.current.disconnect()
     del bpy.types.Scene.bcf_connect
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
