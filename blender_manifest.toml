@@ -4,7 +4,7 @@ id = "bcfserver_connect"
 version = "0.1.0"
 name = "BCFserver-Connect"
 tagline = "Connect Blender to a BCF API server and a local WebSocket server"
-maintainer = "OpenFabTwin <zaqifathis@gmail.com>"
+maintainer = "Zaqi Fathis <zaqifathis@gmail.com>"
 type = "add-on"
 
 tags = ["Import-Export"]
