@@ -1,0 +1,23 @@
+schema_version = "1.0.0"
+
+id = "bcfserver_connect"
+version = "0.1.0"
+name = "BCFserver-Connect"
+tagline = "Connect Blender to a BCF API server and a local WebSocket server"
+maintainer = "OpenFabTwin <zaqifathis@gmail.com>"
+type = "add-on"
+
+tags = ["Import-Export"]
+
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:MIT",
+]
+
+wheels = [
+  "./wheels/bcf_client-0.8.5-py3-none-any.whl",
+]
+
+[permissions]
+network = "Connect to BCF server and host local WebSocket server"
