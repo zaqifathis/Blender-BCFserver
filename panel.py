@@ -1,4 +1,18 @@
+import textwrap
+
 import bpy
+
+from . import log, session
+
+LOG_LINES = 15
+LOG_ICONS = {"INFO": "INFO", "WARNING": "ERROR", "ERROR": "CANCEL", "CRITICAL": "CANCEL"}
+
+STATUS_ICONS = {
+    session.DISCONNECTED: "UNLINKED",
+    session.CONNECTING: "SORTTIME",
+    session.CONNECTED: "LINKED",
+    session.ERROR: "ERROR",
+}
 
 
 class BCF_PT_main_panel(bpy.types.Panel):
@@ -11,13 +25,57 @@ class BCF_PT_main_panel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         props = context.scene.bcf_connect
+        current = session.current
 
         box = layout.box()
         box.label(text="BCF Server", icon="URL")
-        box.prop(props, "server_url", text="URL")
-        box.operator("bcf.connect", icon="LINKED")
+        row = box.row()
+        row.enabled = current.status in (session.DISCONNECTED, session.ERROR)
+        row.prop(props, "server_url", text="URL")
+
+        status = current.status.capitalize()
+        if current.message:
+            status += f": {current.message}"
+        box.label(text=status, icon=STATUS_ICONS[current.status])
+
+        if current.status == session.CONNECTED:
+            box.operator("bcf.disconnect", icon="UNLINKED")
+        elif current.status == session.CONNECTING:
+            box.operator("bcf.disconnect", text="Cancel", icon="CANCEL")
+        else:
+            box.operator("bcf.connect", icon="LINKED")
 
         box = layout.box()
         box.label(text="WebSocket Server", icon="NETWORK_DRIVE")
         box.prop(props, "ws_port", text="Port")
         box.operator("bcf.start_ws_server", icon="PLAY")
+
+
+class BCF_PT_log_panel(bpy.types.Panel):
+    bl_label = "BCF Log"
+    bl_idname = "BCF_PT_log_panel"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "BCF"
+
+    def draw_header_preset(self, context):
+        row = self.layout.row(align=True)
+        row.operator("bcf.log_copy", text="", icon="COPYDOWN", emboss=False)
+        row.operator("bcf.log_clear", text="", icon="TRASH", emboss=False)
+
+    def draw(self, context):
+        layout = self.layout
+        if not log.records:
+            layout.label(text="Nothing logged yet")
+            return
+
+        # rough characters per line, so long messages wrap instead of being cut off
+        width = max(20, int(context.region.width / (7 * context.preferences.system.ui_scale)) - 6)
+        col = layout.column(align=True)
+        for t, level, message in list(log.records)[-LOG_LINES:]:
+            lines = textwrap.wrap(f"{t} {message}", width) or [t]
+            col.label(text=lines[0], icon=LOG_ICONS.get(level, "INFO"))
+            for line in lines[1:]:
+                col.label(text=line, icon="BLANK1")
+        if len(log.records) > LOG_LINES:
+            layout.label(text=f"{len(log.records) - LOG_LINES} older lines: use Copy Log", icon="DOCUMENTS")

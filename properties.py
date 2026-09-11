@@ -31,8 +31,17 @@ class BCFConnectPreferences(bpy.types.AddonPreferences):
         description="OAuth client secret registered on the BCF server",
         subtype="PASSWORD",
     )
+    redirect_port: IntProperty(
+        name="Login Callback Port",
+        description="Local port that receives the OAuth login callback. "
+        "http://localhost:<port>/ must be an allowed redirect URI of the OAuth client",
+        default=8081,
+        min=1024,
+        max=65535,
+    )
 
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "client_id")
         layout.prop(self, "client_secret")
+        layout.prop(self, "redirect_port")
