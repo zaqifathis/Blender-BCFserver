@@ -21,3 +21,13 @@ wheels = [
 
 [permissions]
 network = "Connect to BCF server and host local WebSocket server"
+
+[build]
+paths_exclude_pattern = [
+  "web/node_modules/",
+  "web/src/",
+  "web/*.json",
+  "web/*.ts",
+  "web/index.html",
+  "style.md",
+]

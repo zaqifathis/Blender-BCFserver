@@ -1,6 +1,8 @@
+import webbrowser
+
 import bpy
 
-from . import log, session
+from . import log, session, ws_server
 
 
 def _tag_redraw():
@@ -13,6 +15,9 @@ def _tag_redraw():
 def _watch_session():
     # Main-thread timer: repaint the panel while the worker thread is logging in
     _tag_redraw()
+    if session.current.open_ui_pending:
+        session.current.open_ui_pending = False
+        webbrowser.open(ws_server.url())
     return 0.25 if session.current.busy else None
 
 
@@ -39,7 +44,7 @@ class BCF_OT_connect(bpy.types.Operator):
         if not prefs.client_secret:
             log.logger.warning("No client secret set in the add-on preferences")
 
-        session.current.connect(props.server_url.strip(), prefs.client_id, prefs.client_secret, prefs.redirect_port)
+        session.current.connect(props.server_url.strip(), prefs.client_id, prefs.client_secret, prefs.redirect_port, props.ws_port)
         if not bpy.app.timers.is_registered(_watch_session):
             bpy.app.timers.register(_watch_session, first_interval=0.25)
         self.report({"INFO"}, "Log in to the BCF server in your browser")
@@ -81,10 +86,27 @@ class BCF_OT_log_copy(bpy.types.Operator):
 
 class BCF_OT_start_ws_server(bpy.types.Operator):
     bl_idname = "bcf.start_ws_server"
-    bl_label = "Start WebSocket Server"
-    bl_description = "Start the local WebSocket server"
+    bl_label = "Start / Stop Web Panel Server"
+    bl_description = "Start or stop the local web server that hosts the BCF panel"
 
     def execute(self, context):
-        props = context.scene.bcf_connect
-        self.report({"INFO"}, f"Start WebSocket server on port {props.ws_port}: not implemented yet")
+        if ws_server.is_running():
+            session.current.stop_web()
+        else:
+            session.current.start_web(context.scene.bcf_connect.ws_port)
+        _tag_redraw()
+        return {"FINISHED"}
+
+
+class BCF_OT_open_ui(bpy.types.Operator):
+    bl_idname = "bcf.open_ui"
+    bl_label = "Open BCF Panel"
+    bl_description = "Open the BCF panel in your web browser"
+
+    @classmethod
+    def poll(cls, context):
+        return ws_server.is_running()
+
+    def execute(self, context):
+        webbrowser.open(ws_server.url())
         return {"FINISHED"}

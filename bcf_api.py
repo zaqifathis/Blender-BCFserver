@@ -87,7 +87,10 @@ class OAuthFoundationClient(FoundationClient):
         if self._versions is None:
             url = f"{self.baseurl}foundation/versions"
             logger.info("Contacting %s", url)
-            resp = requests.get(url, timeout=TIMEOUT)
+            try:
+                resp = requests.get(url, timeout=TIMEOUT)
+            except (requests.ConnectionError, requests.Timeout) as e:
+                raise BCFConnectError(f"Cannot reach {self.baseurl} - is the BCF server running?") from e
             resp.raise_for_status()
             self._versions = resp.json()["versions"]
             logger.info("Server offers: %s", ", ".join(f"{v['api_id']} {v['version_id']}" for v in self._versions))
@@ -215,6 +218,13 @@ class BCFApiClient(BcfClient):
         logger.debug("GET %s -> %d", resp.url, resp.status_code)
         resp.raise_for_status()
         return resp.json()
+
+    def get_raw(self, endpoint):
+        """GET a non-JSON resource (e.g. a snapshot image); returns the requests.Response."""
+        headers = {"Authorization": f"Bearer {self.foundation_client.get_access_token()}"}
+        resp = requests.get(f"{self.baseurl}{endpoint}", headers=headers, timeout=TIMEOUT)
+        resp.raise_for_status()
+        return resp
 
 
 def connect(server_url, client_id, client_secret, redirect_port, cancel=None):

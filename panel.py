@@ -2,7 +2,7 @@ import textwrap
 
 import bpy
 
-from . import log, session
+from . import log, session, ws_server
 
 LOG_LINES = 15
 LOG_ICONS = {"INFO": "INFO", "WARNING": "ERROR", "ERROR": "CANCEL", "CRITICAL": "CANCEL"}
@@ -47,8 +47,16 @@ class BCF_PT_main_panel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="WebSocket Server", icon="NETWORK_DRIVE")
-        box.prop(props, "ws_port", text="Port")
-        box.operator("bcf.start_ws_server", icon="PLAY")
+        running = ws_server.is_running()
+        row = box.row()
+        row.enabled = not running
+        row.prop(props, "ws_port", text="Port")
+        if running:
+            box.label(text=ws_server.url(), icon="LINKED")
+            box.operator("bcf.open_ui", icon="URL")
+            box.operator("bcf.start_ws_server", text="Stop Server", icon="PAUSE")
+        else:
+            box.operator("bcf.start_ws_server", text="Start Server", icon="PLAY")
 
 
 class BCF_PT_log_panel(bpy.types.Panel):

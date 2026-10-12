@@ -1,3 +1,5 @@
 __pycache__/
 *.py[cod]
 *.zip
+style.md
+web/node_modules/
