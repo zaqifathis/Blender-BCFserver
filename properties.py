@@ -6,7 +6,7 @@ class BCFConnectProperties(bpy.types.PropertyGroup):
     server_url: StringProperty(
         name="BCF Server URL",
         description="Base URL of the BCF API server",
-        default="http://localhost:8080/",
+        default="http://localhost:8181/",
     )
     ws_port: IntProperty(
         name="WebSocket Port",
