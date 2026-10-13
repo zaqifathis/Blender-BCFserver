@@ -31,16 +31,25 @@ def _quote(value):
 # --- request handlers: (client, payload) -> JSON-able ---------------------------------
 
 
+def _odata(p):
+    """OData query options from the payload: {"filter": ..., "orderby": ...} -> {"$filter": ..., ...}."""
+    return {f"${key}": p[key] for key in ("filter", "orderby") if p.get(key)}
+
+
 def _projects(client, p):
     return client.get("/projects")
 
 
 def _topics(client, p):
-    return client.get(f"/projects/{_quote(p['project_id'])}/topics")
+    return client.get(f"/projects/{_quote(p['project_id'])}/topics", params=_odata(p))
+
+
+def _extensions(client, p):
+    return client.get(f"/projects/{_quote(p['project_id'])}/extensions")
 
 
 def _comments(client, p):
-    return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/comments")
+    return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/comments", params=_odata(p))
 
 
 def _viewpoints(client, p):
@@ -50,6 +59,7 @@ def _viewpoints(client, p):
 HANDLERS = {
     "projects.list": _projects,
     "topics.list": _topics,
+    "extensions.get": _extensions,
     "comments.list": _comments,
     "viewpoints.list": _viewpoints,
 }

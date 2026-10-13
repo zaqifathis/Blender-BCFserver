@@ -1,8 +1,54 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
-import type { Comment, Project, Topic, Viewpoint } from "./types";
+import type { Comment, Extensions, Project, Topic, Viewpoint } from "./types";
 import { onConnection, request } from "./ws";
 
 const CLOSED = new Set(["closed", "resolved", "done"]);
+
+// Topic filters from the BCF API "GET Topics" OData filter parameters; key is the OData property.
+// "value" compares with eq, "list" matches any element of a string array, "date" is a day range.
+type FilterDef = { key: string; label: string; kind: "value" | "list" | "date"; source?: keyof Extensions };
+const FILTERS: FilterDef[] = [
+  { key: "creation_author", label: "Created by", kind: "value", source: "users" },
+  { key: "modified_author", label: "Modified by", kind: "value", source: "users" },
+  { key: "assigned_to", label: "Assigned to", kind: "value", source: "users" },
+  { key: "stage", label: "Stage", kind: "value", source: "stage" },
+  { key: "topic_status", label: "Status", kind: "value", source: "topic_status" },
+  { key: "topic_type", label: "Type", kind: "value", source: "topic_type" },
+  { key: "priority", label: "Priority", kind: "value", source: "priority" },
+  { key: "labels", label: "Label", kind: "list", source: "topic_label" },
+  { key: "creation_date", label: "Created", kind: "date" },
+  { key: "modified_date", label: "Modified", kind: "date" },
+];
+// A key is present once its filter was added from the menu; empty fields mean no constraint
+type FilterValue = { value?: string; from?: string; to?: string };
+type Filters = Record<string, FilterValue>;
+
+// "GET Topics" OData sort parameters (deprecated index left out)
+const TOPIC_SORTS: [string, string][] = [
+  ["creation_date", "Created"],
+  ["modified_date", "Modified"],
+  ["server_assigned_id", "ID"],
+];
+
+const literal = (s: string) => `'${s.replace(/'/g, "''")}'`;
+
+// Start of a local calendar day ("YYYY-MM-DD", plus offset days) as an OData datetime
+function dayStart(day: string, offset = 0) {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d + offset).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function toOData(filters: Filters) {
+  return FILTERS.flatMap(({ key, kind }) => {
+    const f = filters[key];
+    if (!f) return [];
+    if (kind === "date") {
+      return [f.from && `${key} ge ${dayStart(f.from)}`, f.to && `${key} lt ${dayStart(f.to, 1)}`].filter(Boolean);
+    }
+    if (!f.value) return [];
+    return [kind === "list" ? `${key}/any(x: x eq ${literal(f.value)})` : `${key} eq ${literal(f.value)}`];
+  }).join(" and ");
+}
 
 function useAsync<T>(fn: (() => Promise<T>) | null, deps: unknown[]) {
   const [state, set] = useState<{ data?: T; error?: string; loading: boolean }>({ loading: false });
@@ -34,6 +80,14 @@ function Badge({ kind, value }: { kind: string; value?: string }) {
 
 const val = (e: Event) => (e.target as HTMLInputElement).value;
 
+function FilterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+    </svg>
+  );
+}
+
 export function App() {
   const [connected, setConnected] = useState(false);
   useEffect(() => onConnection(setConnected), []);
@@ -41,7 +95,10 @@ export function App() {
   const [projectId, setProjectId] = useState("");
   const [topicId, setTopicId] = useState("");
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
+  const [filters, setFilters] = useState<Filters>({});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [sortField, setSortField] = useState("creation_date");
+  const [sortDesc, setSortDesc] = useState(true);
   const [showClosed, setShowClosed] = useState(false);
 
   const projects = useAsync<Project[]>(connected ? () => request("projects.list") : null, [connected]);
@@ -49,21 +106,47 @@ export function App() {
     if (!projectId && projects.data?.length) setProjectId(projects.data[0].project_id);
   }, [projects.data]);
 
+  const filter = toOData(filters);
+  const orderby = `${sortField} ${sortDesc ? "desc" : "asc"}`;
   const topics = useAsync<Topic[]>(
-    connected && projectId ? () => request("topics.list", { project_id: projectId }) : null,
+    connected && projectId ? () => request("topics.list", { project_id: projectId, filter, orderby }) : null,
+    [connected, projectId, filter, orderby],
+  );
+  const extensions = useAsync<Extensions>(
+    connected && projectId ? () => request("extensions.get", { project_id: projectId }) : null,
     [connected, projectId],
   );
-  useEffect(() => setTopicId(""), [projectId]);
+  useEffect(() => {
+    setTopicId("");
+    setFilters({});
+    setMenuOpen(false);
+  }, [projectId]);
 
-  const statuses = useMemo(
-    () => [...new Set((topics.data ?? []).map((t) => t.topic_status).filter((s): s is string => !!s))],
-    [topics.data],
-  );
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => !(e.target as Element).closest(".filter-bar") && setMenuOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuOpen]);
+
+  // Only offer value filters the project defines values for
+  const options = (def: FilterDef) => (def.source ? (extensions.data?.[def.source] ?? []) : []);
+  const available = FILTERS.filter((def) => def.kind === "date" || options(def).length > 0);
+  const addable = available.filter(({ key }) => !(key in filters));
+  const active = available.filter(({ key }) => key in filters);
+  const isSet = (key: string) => Object.values(filters[key] ?? {}).some(Boolean);
+  const setFilter = (key: string, change: FilterValue) => setFilters((f) => ({ ...f, [key]: { ...f[key], ...change } }));
+  const removeFilter = (key: string) =>
+    setFilters((f) => {
+      const { [key]: _, ...rest } = f;
+      return rest;
+    });
+  // Filters and sorting run on the server; text search and hiding closed topics stay local
+  const status = filters.topic_status?.value;
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (topics.data ?? [])
       .filter((t) => showClosed || status || !CLOSED.has((t.topic_status ?? "").toLowerCase()))
-      .filter((t) => !status || t.topic_status === status)
       .filter((t) => !q || `${t.title} ${t.description ?? ""} ${t.assigned_to ?? ""}`.toLowerCase().includes(q));
   }, [topics.data, query, status, showClosed]);
   const topic = topics.data?.find((t) => t.guid === topicId);
@@ -81,16 +164,90 @@ export function App() {
       </header>
 
       <aside>
-        <input type="search" placeholder="Search topics" value={query} onInput={(e) => setQuery(val(e))} />
-        <div class="chips">
-          <button class={!status ? "chip active" : "chip"} onClick={() => setStatus("")}>
-            All
+        <div class="filter-bar">
+          <input type="search" placeholder="Search topics" value={query} onInput={(e) => setQuery(val(e))} />
+          <button
+            class={active.some(({ key }) => isSet(key)) ? "icon-btn set" : "icon-btn"}
+            onClick={() => setMenuOpen((o) => !o)}
+            disabled={addable.length === 0}
+            title={addable.length ? "Add filter" : "No more filters"}
+            aria-label="Add filter"
+            aria-expanded={menuOpen}
+          >
+            <FilterIcon />
           </button>
-          {statuses.map((s) => (
-            <button class={status === s ? "chip active" : "chip"} onClick={() => setStatus(s)}>
-              {s}
-            </button>
-          ))}
+          {menuOpen && addable.length > 0 && (
+            <ul class="menu" role="menu">
+              {addable.map(({ key, label }) => (
+                <li>
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setFilter(key, {});
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {active.length > 0 && (
+          <div class="filters">
+            {active.map((def) => (
+              <div class="filter">
+                <span>{def.label}</span>
+                {def.kind === "date" ? (
+                  <span class="range">
+                    {(["from", "to"] as const).map((end) => (
+                      <input
+                        type="date"
+                        value={filters[def.key][end] ?? ""}
+                        onChange={(e) => setFilter(def.key, { [end]: val(e) })}
+                        aria-label={`${def.label} ${end}`}
+                        title={end === "from" ? "From" : "To"}
+                        class={filters[def.key][end] ? "set" : ""}
+                      />
+                    ))}
+                  </span>
+                ) : (
+                  <select
+                    value={filters[def.key].value ?? ""}
+                    onChange={(e) => setFilter(def.key, { value: val(e) })}
+                    aria-label={def.label}
+                    class={filters[def.key].value ? "set" : ""}
+                  >
+                    <option value="">All</option>
+                    {options(def).map((v) => (
+                      <option value={v}>{v}</option>
+                    ))}
+                  </select>
+                )}
+                <button class="icon-btn" onClick={() => removeFilter(def.key)} title={`Remove ${def.label} filter`} aria-label={`Remove ${def.label} filter`}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {extensions.error && <p class="error">{extensions.error}</p>}
+        <div class="filter sort">
+          <span>Sort</span>
+          <select value={sortField} onChange={(e) => setSortField(val(e))} aria-label="Sort topics by">
+            {TOPIC_SORTS.map(([key, label]) => (
+              <option value={key}>{label}</option>
+            ))}
+          </select>
+          <button
+            class="icon-btn"
+            onClick={() => setSortDesc((d) => !d)}
+            title={sortDesc ? "Descending" : "Ascending"}
+            aria-label={sortDesc ? "Sort descending" : "Sort ascending"}
+          >
+            {sortDesc ? "↓" : "↑"}
+          </button>
         </div>
         <label class="check">
           <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed((e.target as HTMLInputElement).checked)} /> Show closed
@@ -124,7 +281,11 @@ export function App() {
 }
 
 function Detail({ projectId, topic }: { projectId: string; topic: Topic }) {
-  const comments = useAsync<Comment[]>(() => request("comments.list", { project_id: projectId, topic_id: topic.guid }), [topic.guid]);
+  const [newestFirst, setNewestFirst] = useState(false);
+  const comments = useAsync<Comment[]>(
+    () => request("comments.list", { project_id: projectId, topic_id: topic.guid, orderby: `date ${newestFirst ? "desc" : "asc"}` }),
+    [topic.guid, newestFirst],
+  );
   const viewpoints = useAsync<Viewpoint[]>(() => request("viewpoints.list", { project_id: projectId, topic_id: topic.guid }), [topic.guid]);
   const snap = (vp: string) =>
     `/api/snapshot/${encodeURIComponent(projectId)}/${encodeURIComponent(topic.guid)}/${encodeURIComponent(vp)}`;
@@ -171,7 +332,12 @@ function Detail({ projectId, topic }: { projectId: string; topic: Topic }) {
         />
       )}
       {topic.description && <p class="desc">{topic.description}</p>}
-      <h3>Comments{comments.data ? ` (${comments.data.length})` : ""}</h3>
+      <h3 class="comments-head">
+        Comments{comments.data ? ` (${comments.data.length})` : ""}
+        <button class="link" onClick={() => setNewestFirst((n) => !n)} title="Change comment order">
+          {newestFirst ? "Newest first ↓" : "Oldest first ↑"}
+        </button>
+      </h3>
       {comments.error && <p class="error">{comments.error}</p>}
       <ul class="comments">
         {(comments.data ?? []).map((c) => (
