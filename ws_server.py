@@ -22,6 +22,7 @@ from .log import logger
 WEB_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist")
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 MAX_MESSAGE = 1 << 20  # bytes; the browser only ever sends small JSON requests
+DOWNLOAD_CHUNK = 64 * 1024  # bytes per read when streaming a document to the browser
 
 
 def _quote(value):
@@ -56,12 +57,22 @@ def _viewpoints(client, p):
     return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/viewpoints")
 
 
+def _document_references(client, p):
+    return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/document_references")
+
+
+def _documents(client, p):
+    return client.get(f"/projects/{_quote(p['project_id'])}/documents")
+
+
 HANDLERS = {
     "projects.list": _projects,
     "topics.list": _topics,
     "extensions.get": _extensions,
     "comments.list": _comments,
     "viewpoints.list": _viewpoints,
+    "document_references.list": _document_references,
+    "documents.list": _documents,
 }
 
 
@@ -136,11 +147,14 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         is_ws = self.headers.get("Upgrade", "").lower() == "websocket"
         if not self._allowed(check_origin=is_ws):
             return self._send(403, b"Forbidden")
-        path = urllib.parse.urlparse(self.path).path
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
         if path == "/ws" and is_ws:
             return self._websocket()
         if path.startswith("/api/snapshot/"):
             return self._snapshot(path)
+        if path.startswith("/api/document/"):
+            return self._document(path, urllib.parse.parse_qs(parsed.query).get("name", [""])[0])
         self._static(path)
 
     def _static(self, path):
@@ -168,6 +182,39 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             logger.warning("Snapshot failed: %s", e)
             return self._send(502, b"Snapshot unavailable")
         self._send(200, resp.content, resp.headers.get("Content-Type", "image/png"))
+
+    def _document(self, path, name):
+        client = self.server.get_client()
+        parts = path.split("/")[3:]  # project, document
+        if client is None or len(parts) != 2:
+            return self._send(404, b"Not found")
+        try:
+            project, document = (urllib.parse.unquote(p) for p in parts)
+            resp = client.get_raw(f"/projects/{_quote(project)}/documents/{_quote(document)}", stream=True)
+        except Exception as e:
+            logger.warning("Document download failed: %s", e)
+            return self._send(502, b"Document unavailable")
+        with resp:
+            self.send_response(200)
+            self.send_header("Content-Type", resp.headers.get("Content-Type", "application/octet-stream"))
+            # Always an attachment: never render server-supplied content on this origin, which holds the session
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{_quote(name)}" if name else "attachment")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Cache-Control", "no-store")
+            # iter_content decodes gzip etc., so the upstream length only holds for an unencoded body
+            length = resp.headers.get("Content-Length")
+            if length and not resp.headers.get("Content-Encoding"):
+                self.send_header("Content-Length", length)
+            else:
+                self.close_connection = True  # body ends when the connection closes
+            self.end_headers()
+            try:
+                for chunk in resp.iter_content(DOWNLOAD_CHUNK):
+                    self.wfile.write(chunk)
+            except Exception as e:
+                # Headers are out, so the browser can only see a truncated download
+                logger.warning("Document download interrupted: %s", e)
+                self.close_connection = True
 
     def _websocket(self):
         key = self.headers.get("Sec-WebSocket-Key")

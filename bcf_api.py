@@ -219,10 +219,15 @@ class BCFApiClient(BcfClient):
         resp.raise_for_status()
         return resp.json()
 
-    def get_raw(self, endpoint):
-        """GET a non-JSON resource (e.g. a snapshot image); returns the requests.Response."""
+    def get_raw(self, endpoint, stream=False):
+        """GET a non-JSON resource (e.g. a snapshot image); returns the requests.Response.
+
+        With ``stream=True`` the body is not read yet; the caller must close the response.
+        """
         headers = {"Authorization": f"Bearer {self.foundation_client.get_access_token()}"}
-        resp = requests.get(f"{self.baseurl}{endpoint}", headers=headers, timeout=TIMEOUT)
+        resp = requests.get(f"{self.baseurl}{endpoint}", headers=headers, timeout=TIMEOUT, stream=stream)
+        if not resp.ok:
+            resp.close()
         resp.raise_for_status()
         return resp
 

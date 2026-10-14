@@ -1,5 +1,5 @@
-import { ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
-import type { Comment, Extensions, Project, Topic, Viewpoint } from "./types";
+import { DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
+import type { Comment, Document, DocumentReference, Extensions, Project, Topic, Viewpoint } from "./types";
 import { request } from "./ws";
 
 export const listProjects = () => request<Project[]>(ENDPOINTS.projects);
@@ -17,3 +17,12 @@ export const listViewpoints = (projectId: string, topicId: string) =>
 
 export const snapshotUrl = (projectId: string, topicId: string, viewpointId: string) =>
   `${SNAPSHOT_PATH}/${[projectId, topicId, viewpointId].map(encodeURIComponent).join("/")}`;
+
+export const listDocumentReferences = (projectId: string, topicId: string) =>
+  request<DocumentReference[]>(ENDPOINTS.documentReferences, { project_id: projectId, topic_id: topicId });
+
+export const listDocuments = (projectId: string) => request<Document[]>(ENDPOINTS.documents, { project_id: projectId });
+
+export const documentUrl = (projectId: string, documentId: string, filename?: string) =>
+  `${DOCUMENT_PATH}/${[projectId, documentId].map(encodeURIComponent).join("/")}` +
+  (filename ? `?name=${encodeURIComponent(filename)}` : "");

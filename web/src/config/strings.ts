@@ -41,5 +41,9 @@ export const STRINGS = {
     changeOrder: "Change comment order",
     newestFirst: "Newest first ↓",
     oldestFirst: "Oldest first ↑",
+    documents: "Documents",
+    documentsCount: (n: number) => ` (${n})`,
+    download: (name: string) => `Download ${name}`,
+    openLink: (url: string) => `Open ${url}`,
   },
 } as const;
