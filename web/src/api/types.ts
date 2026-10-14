@@ -41,3 +41,17 @@ export interface Comment {
 export interface Viewpoint {
   guid: string;
 }
+
+// Points either at a document stored on the server (document_guid) or at an external url
+export interface DocumentReference {
+  guid: string;
+  document_guid?: string;
+  url?: string;
+  description?: string;
+}
+
+export interface Document {
+  guid: string;
+  filename: string;
+  description?: string;
+}
