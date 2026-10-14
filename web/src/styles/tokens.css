@@ -41,7 +41,8 @@
   /* Layout */
   --sidebar-width: 340px;
   --sidebar-height-narrow: 40vh;
-  --article-width: 760px;
+  --aside-width: 360px;
+  --column-gap: 48px;
   --header-select-width: 320px;
   --control-size: 32px;
   --filter-label-width: 80px;

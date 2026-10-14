@@ -1,5 +1,26 @@
 .article {
-  max-width: var(--article-width);
+  display: grid;
+  /* Fills the panel; the aside grows with it but never below --aside-width */
+  grid-template-columns: minmax(0, 3fr) minmax(var(--aside-width), 2fr);
+  gap: var(--column-gap);
+  align-items: start;
+}
+
+/* hidden must win over display: grid while the topic loads */
+.article[hidden] {
+  display: none;
+}
+
+/* Media queries cannot read custom properties, so the breakpoint stays a literal */
+@media (max-width: 1100px) {
+  .article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.main,
+.aside {
+  min-width: 0;
 }
 
 .title {

@@ -65,6 +65,10 @@ def _documents(client, p):
     return client.get(f"/projects/{_quote(p['project_id'])}/documents")
 
 
+def _files(client, p):
+    return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/files")
+
+
 HANDLERS = {
     "projects.list": _projects,
     "topics.list": _topics,
@@ -73,6 +77,7 @@ HANDLERS = {
     "viewpoints.list": _viewpoints,
     "document_references.list": _document_references,
     "documents.list": _documents,
+    "files.list": _files,
 }
 
 
