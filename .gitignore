@@ -3,3 +3,4 @@ __pycache__/
 *.zip
 style.md
 web/node_modules/
+web/dist/
