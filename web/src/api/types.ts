@@ -50,6 +50,13 @@ export interface DocumentReference {
   description?: string;
 }
 
+// Model file in the topic header; reference is an absolute uri or a server-specific id
+export interface TopicFile {
+  ifc_project?: string;
+  filename?: string;
+  reference?: string;
+}
+
 export interface Document {
   guid: string;
   filename: string;

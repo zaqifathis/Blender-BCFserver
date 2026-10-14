@@ -1,4 +1,4 @@
-import { listComments, listDocumentReferences, listDocuments, listViewpoints } from "../api/bcf";
+import { listComments, listDocumentReferences, listDocuments, listFiles, listViewpoints } from "../api/bcf";
 import { COMMENT_SORT_FIELD } from "../config/topicSorts";
 import { toODataOrderBy } from "../lib/odata";
 import { useAsync } from "./useAsync";
@@ -10,5 +10,6 @@ export function useTopicDetail(projectId: string, topicId: string, newestFirst: 
   const documentReferences = useAsync(() => listDocumentReferences(projectId, topicId), [topicId]);
   // Only for filenames; a server without the Documents API still lists the references
   const documents = useAsync(() => listDocuments(projectId).catch(() => []), [projectId]);
-  return { comments, viewpoints, documentReferences, documents };
+  const files = useAsync(() => listFiles(projectId, topicId), [topicId]);
+  return { comments, viewpoints, documentReferences, documents, files };
 }

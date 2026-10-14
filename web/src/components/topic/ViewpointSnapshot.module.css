@@ -1,7 +1,7 @@
 .snapshot {
   display: block;
-  max-width: 100%;
-  margin: var(--space-7) 0;
+  width: 100%;
+  margin: 0 0 var(--space-7);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
 }

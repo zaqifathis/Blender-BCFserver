@@ -2,13 +2,11 @@ import { documentUrl } from "../../api/bcf";
 import type { Document, DocumentReference } from "../../api/types";
 import { STRINGS } from "../../config/strings";
 import type { AsyncState } from "../../hooks/useAsync";
+import { isWebUrl } from "../../lib/url";
 import { ErrorMessage } from "../common/StatusMessage";
 import styles from "./DocumentsSection.module.css";
 
 type Props = { projectId: string; references: AsyncState<DocumentReference[]>; documents: Document[] };
-
-// Only http(s) links are rendered, so a reference cannot smuggle in a javascript: url
-const isWebUrl = (url?: string): url is string => !!url && /^https?:\/\//i.test(url);
 
 // Hidden when the topic references no documents
 export function DocumentsSection({ projectId, references, documents }: Props) {

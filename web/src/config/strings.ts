@@ -43,6 +43,8 @@ export const STRINGS = {
     oldestFirst: "Oldest first ↑",
     documents: "Documents",
     documentsCount: (n: number) => ` (${n})`,
+    files: "Files",
+    filesCount: (n: number) => ` (${n})`,
     download: (name: string) => `Download ${name}`,
     openLink: (url: string) => `Open ${url}`,
   },
