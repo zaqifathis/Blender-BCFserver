@@ -1,0 +1,25 @@
+.badge {
+  font-size: var(--text-xs);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--line);
+}
+
+.status-open,
+.status-active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.status-closed,
+.status-resolved,
+.status-done {
+  background: var(--line);
+  color: var(--muted);
+}
+
+.prio-critical,
+.prio-high {
+  background: var(--bad-bg);
+  color: var(--bad);
+}

@@ -1,0 +1,45 @@
+// User-facing copy; filter and sort labels live with their definitions in config
+export const STRINGS = {
+  common: {
+    loading: "Loading…",
+    all: "All",
+    unknownAuthor: "Unknown",
+  },
+  header: {
+    title: "BCF",
+    project: "Project",
+    connected: "Connected to Blender",
+    waiting: "Waiting for Blender…",
+  },
+  sidebar: {
+    search: "Search topics",
+    addFilter: "Add filter",
+    noMoreFilters: "No more filters",
+    removeFilter: (label: string) => `Remove ${label} filter`,
+    dateRangeEnd: { from: "From", to: "To" },
+    dateRangeLabel: (label: string, end: string) => `${label} ${end}`,
+    sort: "Sort",
+    sortBy: "Sort topics by",
+    descending: "Descending",
+    ascending: "Ascending",
+    sortDescending: "Sort descending",
+    sortAscending: "Sort ascending",
+    showClosed: "Show closed",
+    noTopics: "No topics",
+  },
+  main: {
+    waiting: "Waiting for Blender…",
+    selectTopic: "Select a topic",
+  },
+  topic: {
+    assigned: "Assigned",
+    created: "Created",
+    due: "Due",
+    snapshotAlt: "Viewpoint snapshot",
+    comments: "Comments",
+    commentsCount: (n: number) => ` (${n})`,
+    changeOrder: "Change comment order",
+    newestFirst: "Newest first ↓",
+    oldestFirst: "Oldest first ↑",
+  },
+} as const;

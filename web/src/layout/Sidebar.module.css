@@ -1,0 +1,7 @@
+.sidebar {
+  grid-area: sidebar;
+  overflow-y: auto;
+  padding: var(--space-6);
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}

@@ -1,0 +1,12 @@
+.app {
+  display: grid;
+  grid-template: "header header" auto "sidebar main" 1fr / var(--sidebar-width) 1fr;
+  height: 100vh;
+}
+
+/* Media queries cannot read custom properties, so the breakpoint stays a literal */
+@media (max-width: 720px) {
+  .app {
+    grid-template: "header" auto "sidebar" var(--sidebar-height-narrow) "main" 1fr / 1fr;
+  }
+}

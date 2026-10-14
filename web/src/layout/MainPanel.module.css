@@ -1,0 +1,5 @@
+.main {
+  grid-area: main;
+  overflow-y: auto;
+  padding: var(--space-10);
+}

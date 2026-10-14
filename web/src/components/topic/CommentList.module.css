@@ -1,0 +1,13 @@
+.comment {
+  border-top: 1px solid var(--line);
+  padding: var(--space-5) 0;
+}
+
+.date {
+  color: var(--muted);
+}
+
+.text {
+  margin: var(--space-1) 0 0;
+  white-space: pre-wrap;
+}

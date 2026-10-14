@@ -1,0 +1,18 @@
+.row {
+  display: grid;
+  grid-template-columns: var(--filter-label-width) 1fr var(--control-size);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.label {
+  color: var(--muted);
+}
+
+.row select {
+  padding: var(--space-2) var(--space-4);
+}
+
+.action {
+  align-self: stretch;
+}

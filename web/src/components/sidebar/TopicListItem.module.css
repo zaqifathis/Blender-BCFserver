@@ -1,0 +1,24 @@
+.topic {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  padding: var(--space-4) var(--space-5);
+  cursor: pointer;
+}
+
+.topic:hover {
+  background: var(--bg);
+}
+
+.selected,
+.selected:hover {
+  background: var(--accent-bg);
+}
+
+.title {
+  display: block;
+  font-weight: var(--weight-medium);
+}

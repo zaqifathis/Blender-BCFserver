@@ -1,0 +1,27 @@
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-menu);
+  min-width: var(--menu-width);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--accent-bg);
+}

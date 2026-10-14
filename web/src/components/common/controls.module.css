@@ -1,0 +1,7 @@
+/* Shared look for controls showing an active (set) value.
+   Doubled class outranks each control's own base class regardless of stylesheet order. */
+.highlighted.highlighted {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
