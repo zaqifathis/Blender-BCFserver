@@ -1,0 +1,15 @@
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
+.orderToggle {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: normal;
+  cursor: pointer;
+}

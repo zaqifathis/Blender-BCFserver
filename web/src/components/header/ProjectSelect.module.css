@@ -1,0 +1,4 @@
+.select {
+  flex: 1;
+  max-width: var(--header-select-width);
+}

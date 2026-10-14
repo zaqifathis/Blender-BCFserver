@@ -1,0 +1,5 @@
+.check {
+  display: block;
+  margin: var(--space-4) 0;
+  color: var(--muted);
+}
