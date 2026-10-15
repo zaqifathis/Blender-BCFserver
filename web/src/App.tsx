@@ -28,6 +28,7 @@ export function App() {
   const [topicId, setTopicId] = useResettableState(projectId, "");
   const topic = query.topics.data?.find((t) => t.guid === topicId);
   const editing = useTopicEditing(projectId, topic, setTopicId, query.reload);
+  const canEdit = canEditTopics(extensions.data);
 
   return (
     <AppLayout
@@ -40,7 +41,7 @@ export function App() {
           extensionsError={extensions.error}
           query={query}
           selectedId={topicId}
-          canEdit={canEditTopics(extensions.data)}
+          canEdit={canEdit}
           editing={editing}
         />
       }
@@ -52,6 +53,7 @@ export function App() {
           editing={editing}
           extensions={extensions.data}
           labelOptions={knownLabels(extensions.data?.topic_label, labels)}
+          canEdit={canEdit}
         />
       }
     />

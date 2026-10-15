@@ -1,5 +1,7 @@
 .check {
   display: block;
-  margin: var(--space-4) 0;
+  margin: var(--space-4) 0 var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--line);
   color: var(--muted);
 }

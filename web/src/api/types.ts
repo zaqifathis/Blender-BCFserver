@@ -23,6 +23,8 @@ export interface Topic {
   reference_links?: string[];
   index?: number;
   bim_snippet?: object;
+  // Only when the server includes authorization; overrides the project's topic_actions
+  authorization?: { topic_actions?: string[] };
 }
 
 export interface Extensions {
@@ -66,7 +68,14 @@ export interface TopicPut {
   bim_snippet?: object;
 }
 
-export interface CommentInput {
+// Body of a comment POST (BCF 3.0 comment_POST.json); viewpoint_guid is left out when the comment has none
+export interface CommentPost {
+  comment: string;
+  viewpoint_guid?: string;
+}
+
+// Body of a comment PUT (BCF 3.0 comment_PUT.json): replaces the comment, so its viewpoint is sent back too
+export interface CommentPut {
   comment: string;
   viewpoint_guid: string | null;
 }
@@ -85,6 +94,8 @@ export interface Comment {
   author?: string;
   date?: string;
   viewpoint_guid?: string;
+  // Only when the server includes authorization; overrides the project's comment_actions
+  authorization?: { comment_actions?: string[] };
 }
 
 export interface Viewpoint {

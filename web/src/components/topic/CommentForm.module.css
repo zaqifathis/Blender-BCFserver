@@ -1,0 +1,14 @@
+.form {
+  margin: 0 0 var(--space-6);
+}
+
+.form textarea {
+  resize: vertical;
+}
+
+.buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}

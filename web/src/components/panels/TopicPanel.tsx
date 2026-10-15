@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import type { Extensions, Topic } from "../../api/types";
 import { STRINGS } from "../../config/strings";
 import type { TopicEditing } from "../../hooks/useTopicEditing";
-import { StatusMessage } from "../common/StatusMessage";
+import { ErrorMessage, StatusMessage } from "../common/StatusMessage";
 import { TopicEditor } from "../editor/TopicEditor";
 import { TopicDetail } from "../topic/TopicDetail";
 
@@ -13,9 +13,10 @@ type Props = {
   editing: TopicEditing;
   extensions?: Extensions;
   labelOptions: string[];
+  canEdit: boolean;
 };
 
-export function TopicPanel({ connected, projectId, topic, editing, extensions, labelOptions }: Props) {
+export function TopicPanel({ connected, projectId, topic, editing, extensions, labelOptions, canEdit }: Props) {
   // Comment order is kept across topics
   const [newestFirst, setNewestFirst] = useState(false);
 
@@ -34,14 +35,28 @@ export function TopicPanel({ connected, projectId, topic, editing, extensions, l
       />
     );
   }
-  if (!topic) return <StatusMessage>{STRINGS.main.selectTopic}</StatusMessage>;
+  if (!topic) {
+    return (
+      <>
+        <ErrorMessage error={editing.error} />
+        <StatusMessage>{STRINGS.main.selectTopic}</StatusMessage>
+      </>
+    );
+  }
   return (
-    <TopicDetail
-      key={`${topic.guid}:${editing.revision}`}
-      projectId={projectId}
-      topic={topic}
-      newestFirst={newestFirst}
-      onToggleOrder={() => setNewestFirst((n) => !n)}
-    />
+    <>
+      <ErrorMessage error={editing.error} />
+      <TopicDetail
+        key={`${topic.guid}:${editing.revision}`}
+        projectId={projectId}
+        topic={topic}
+        extensions={extensions}
+        newestFirst={newestFirst}
+        onToggleOrder={() => setNewestFirst((n) => !n)}
+        canEdit={canEdit}
+        onEdit={editing.edit}
+        onDelete={editing.remove}
+      />
+    </>
   );
 }

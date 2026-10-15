@@ -1,0 +1,10 @@
+.header {
+  display: flex;
+  align-items: center;
+  margin: 0 0 var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+}
