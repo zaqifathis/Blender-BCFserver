@@ -7,10 +7,12 @@ import { useAsync } from "./hooks/useAsync";
 import { useConnection } from "./hooks/useConnection";
 import { useProjects } from "./hooks/useProjects";
 import { useResettableState } from "./hooks/useResettableState";
+import { useTopicEditing } from "./hooks/useTopicEditing";
 import { useTopicFilters } from "./hooks/useTopicFilters";
 import { useTopicLabels } from "./hooks/useTopicLabels";
 import { useTopicQuery } from "./hooks/useTopicQuery";
 import { AppLayout } from "./layout/AppLayout";
+import { canEditTopics, knownLabels } from "./lib/topic";
 
 export function App() {
   const connected = useConnection();
@@ -25,6 +27,7 @@ export function App() {
 
   const [topicId, setTopicId] = useResettableState(projectId, "");
   const topic = query.topics.data?.find((t) => t.guid === topicId);
+  const editing = useTopicEditing(projectId, topic, setTopicId, query.reload);
 
   return (
     <AppLayout
@@ -37,10 +40,20 @@ export function App() {
           extensionsError={extensions.error}
           query={query}
           selectedId={topicId}
-          onSelect={setTopicId}
+          canEdit={canEditTopics(extensions.data)}
+          editing={editing}
         />
       }
-      main={<TopicPanel connected={connected} projectId={projectId} topic={topic} />}
+      main={
+        <TopicPanel
+          connected={connected}
+          projectId={projectId}
+          topic={topic}
+          editing={editing}
+          extensions={extensions.data}
+          labelOptions={knownLabels(extensions.data?.topic_label, labels)}
+        />
+      }
     />
   );
 }

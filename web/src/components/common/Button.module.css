@@ -1,0 +1,28 @@
+.button {
+  min-height: var(--control-size);
+  padding: 0 var(--space-6);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.button:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: default;
+}
+
+.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--panel);
+}
+
+.danger:hover:not(:disabled) {
+  border-color: var(--bad);
+  color: var(--bad);
+}

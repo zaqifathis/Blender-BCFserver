@@ -1,5 +1,18 @@
 import { DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
-import type { Comment, Document, DocumentReference, Extensions, Project, Topic, TopicFile, Viewpoint } from "./types";
+import type {
+  Comment,
+  CommentInput,
+  Document,
+  DocumentReference,
+  Extensions,
+  Project,
+  Snapshot,
+  Topic,
+  TopicFile,
+  TopicPost,
+  TopicPut,
+  Viewpoint,
+} from "./types";
 import { request } from "./ws";
 
 export const listProjects = () => request<Project[]>(ENDPOINTS.projects);
@@ -29,3 +42,25 @@ export const listFiles = (projectId: string, topicId: string) =>
 export const documentUrl = (projectId: string, documentId: string, filename?: string) =>
   `${DOCUMENT_PATH}/${[projectId, documentId].map(encodeURIComponent).join("/")}` +
   (filename ? `?name=${encodeURIComponent(filename)}` : "");
+
+export const createTopic = (projectId: string, topic: TopicPost) =>
+  request<Topic>(ENDPOINTS.createTopic, { project_id: projectId, topic });
+
+export const updateTopic = (projectId: string, topicId: string, topic: TopicPut) =>
+  request<Topic>(ENDPOINTS.updateTopic, { project_id: projectId, topic_id: topicId, topic });
+
+export const deleteTopic = (projectId: string, topicId: string) =>
+  request<null>(ENDPOINTS.deleteTopic, { project_id: projectId, topic_id: topicId });
+
+export const createComment = (projectId: string, topicId: string, comment: CommentInput) =>
+  request<Comment>(ENDPOINTS.createComment, { project_id: projectId, topic_id: topicId, comment });
+
+export const updateComment = (projectId: string, topicId: string, commentId: string, comment: CommentInput) =>
+  request<Comment>(ENDPOINTS.updateComment, { project_id: projectId, topic_id: topicId, comment_id: commentId, comment });
+
+// A viewpoint holding only a snapshot image, e.g. an uploaded screenshot
+export const createSnapshotViewpoint = (projectId: string, topicId: string, snapshot: Snapshot) =>
+  request<Viewpoint>(ENDPOINTS.createViewpoint, { project_id: projectId, topic_id: topicId, viewpoint: { snapshot } });
+
+export const deleteViewpoint = (projectId: string, topicId: string, viewpointId: string) =>
+  request<null>(ENDPOINTS.deleteViewpoint, { project_id: projectId, topic_id: topicId, viewpoint_id: viewpointId });

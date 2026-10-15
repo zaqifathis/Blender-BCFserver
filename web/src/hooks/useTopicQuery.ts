@@ -16,6 +16,8 @@ export function useTopicQuery(connected: boolean, projectId: string, filters: Fi
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>(DEFAULT_TOPIC_SORT);
   const [showClosed, setShowClosed] = useState(false);
+  // Bumped to refetch after a topic was added, edited or deleted
+  const [revision, setRevision] = useState(0);
 
   const filter = toODataFilter(filters);
   const orderby = toODataOrderBy(sort);
@@ -24,6 +26,7 @@ export function useTopicQuery(connected: boolean, projectId: string, filters: Fi
     projectId,
     filter,
     orderby,
+    revision,
   ]);
 
   // An explicit status filter overrides hiding closed topics
@@ -35,5 +38,6 @@ export function useTopicQuery(connected: boolean, projectId: string, filters: Fi
       .filter((t) => !q || searchText(t).includes(q));
   }, [topics.data, search, statusFiltered, showClosed]);
 
-  return { topics, visible, search, setSearch, sort, setSort, showClosed, setShowClosed };
+  const reload = () => setRevision((r) => r + 1);
+  return { topics, visible, search, setSearch, sort, setSort, showClosed, setShowClosed, reload };
 }
