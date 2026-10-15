@@ -4,11 +4,15 @@ import { useResettableState } from "./useResettableState";
 
 export type TopicFilters = ReturnType<typeof useTopicFilters>;
 
-// Filters chosen for the current project; only value filters the project defines values for are offered
-export function useTopicFilters(projectId: string, extensions?: Extensions) {
+// Filters chosen for the current project; only value filters with values to pick from are offered.
+// Labels come from the project extensions plus those seen on topics, as servers often leave topic_label empty.
+export function useTopicFilters(projectId: string, extensions?: Extensions, seenLabels: string[] = []) {
   const [filters, setFilters] = useResettableState<Filters>(projectId, {});
 
-  const options = (def: FilterDef) => (def.source ? (extensions?.[def.source] ?? []) : []);
+  const options = (def: FilterDef) => {
+    const defined = def.source ? (extensions?.[def.source] ?? []) : [];
+    return def.source === "topic_label" ? [...defined, ...seenLabels.filter((l) => !defined.includes(l))] : defined;
+  };
   const available = FILTERS.filter((def) => def.kind === "date" || options(def).length > 0);
   const addable = available.filter(({ key }) => !(key in filters));
   const active = available.filter(({ key }) => key in filters);
