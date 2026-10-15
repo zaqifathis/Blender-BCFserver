@@ -5,7 +5,7 @@ import styles from "./Button.module.css";
 type Props = {
   onClick?: () => void;
   type?: "button" | "submit";
-  variant?: "default" | "primary" | "danger";
+  variant?: "default" | "primary";
   disabled?: boolean;
   title?: string;
   children: ComponentChildren;

@@ -1,7 +1,8 @@
 import { DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
 import type {
   Comment,
-  CommentInput,
+  CommentPost,
+  CommentPut,
   Document,
   DocumentReference,
   Extensions,
@@ -52,11 +53,14 @@ export const updateTopic = (projectId: string, topicId: string, topic: TopicPut)
 export const deleteTopic = (projectId: string, topicId: string) =>
   request<null>(ENDPOINTS.deleteTopic, { project_id: projectId, topic_id: topicId });
 
-export const createComment = (projectId: string, topicId: string, comment: CommentInput) =>
+export const createComment = (projectId: string, topicId: string, comment: CommentPost) =>
   request<Comment>(ENDPOINTS.createComment, { project_id: projectId, topic_id: topicId, comment });
 
-export const updateComment = (projectId: string, topicId: string, commentId: string, comment: CommentInput) =>
+export const updateComment = (projectId: string, topicId: string, commentId: string, comment: CommentPut) =>
   request<Comment>(ENDPOINTS.updateComment, { project_id: projectId, topic_id: topicId, comment_id: commentId, comment });
+
+export const deleteComment = (projectId: string, topicId: string, commentId: string) =>
+  request<null>(ENDPOINTS.deleteComment, { project_id: projectId, topic_id: topicId, comment_id: commentId });
 
 // A viewpoint holding only a snapshot image, e.g. an uploaded screenshot
 export const createSnapshotViewpoint = (projectId: string, topicId: string, snapshot: Snapshot) =>

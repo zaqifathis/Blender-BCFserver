@@ -7,6 +7,8 @@ type Props = {
   label: string;
   title?: string;
   onClick: () => void;
+  // danger: turns red on hover
+  variant?: "default" | "danger";
   highlighted?: boolean;
   disabled?: boolean;
   expanded?: boolean;
@@ -14,10 +16,11 @@ type Props = {
   children: ComponentChildren;
 };
 
-export function IconButton({ label, title = label, onClick, highlighted, disabled, expanded, class: className, children }: Props) {
+export function IconButton({ label, title = label, onClick, variant = "default", highlighted, disabled, expanded, class: className, children }: Props) {
   return (
     <button
-      class={cx(styles.iconButton, highlighted && controls.highlighted, className)}
+      type="button"
+      class={cx(styles.iconButton, styles[variant], highlighted && controls.highlighted, className)}
       onClick={onClick}
       disabled={disabled}
       title={title}

@@ -21,8 +21,3 @@
   background: var(--accent);
   color: var(--panel);
 }
-
-.danger:hover:not(:disabled) {
-  border-color: var(--bad);
-  color: var(--bad);
-}
