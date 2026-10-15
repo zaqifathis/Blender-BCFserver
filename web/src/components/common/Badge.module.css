@@ -5,17 +5,36 @@
   background: var(--line);
 }
 
-.status-open,
-.status-active {
-  background: var(--accent-bg);
-  color: var(--accent);
+/* Each property gets its own hue: text in the hue, background a tint of it */
+.status,
+.prio,
+.stage,
+.type {
+  color: var(--hue);
+  background: color-mix(in srgb, var(--hue) 15%, transparent);
 }
 
+.status {
+  --hue: var(--badge-status);
+}
+
+.prio {
+  --hue: var(--badge-prio);
+}
+
+.stage {
+  --hue: var(--badge-stage);
+}
+
+.type {
+  --hue: var(--badge-type);
+}
+
+/* Values that carry meaning beyond their property */
 .status-closed,
 .status-resolved,
 .status-done {
-  background: var(--line);
-  color: var(--muted);
+  --hue: var(--muted);
 }
 
 .due,

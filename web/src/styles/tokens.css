@@ -10,6 +10,11 @@
   --ok: #16a34a;
   --bad: #dc2626;
   --bad-bg: color-mix(in srgb, var(--bad) 20%, transparent);
+  /* Badge hue per topic property */
+  --badge-status: #2563eb;
+  --badge-prio: #c2410c;
+  --badge-stage: #7c3aed;
+  --badge-type: #0f766e;
   --shadow: 0 4px 16px rgb(0 0 0 / 0.15);
   color-scheme: light dark;
 
@@ -61,5 +66,9 @@
     --line: #2e2b29;
     --accent: #60a5fa;
     --accent-bg: #1e3a5f;
+    --badge-status: #60a5fa;
+    --badge-prio: #fb923c;
+    --badge-stage: #a78bfa;
+    --badge-type: #2dd4bf;
   }
 }

@@ -219,6 +219,17 @@ class BCFApiClient(BcfClient):
         resp.raise_for_status()
         return resp.json()
 
+    def send(self, method, endpoint, data=None):
+        """POST/PUT/DELETE with a JSON body; returns the parsed reply, or None when it is empty.
+
+        Upstream post/put/delete swallow HTTP errors, so writes go through here instead.
+        """
+        headers = {"Authorization": f"Bearer {self.foundation_client.get_access_token()}"}
+        resp = requests.request(method, f"{self.baseurl}{endpoint}", headers=headers, json=data, timeout=TIMEOUT)
+        logger.debug("%s %s -> %d", method, resp.url, resp.status_code)
+        resp.raise_for_status()
+        return resp.json() if resp.content else None
+
     def get_raw(self, endpoint, stream=False):
         """GET a non-JSON resource (e.g. a snapshot image); returns the requests.Response.
 

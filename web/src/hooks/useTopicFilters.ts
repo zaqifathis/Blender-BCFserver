@@ -1,5 +1,6 @@
 import type { Extensions } from "../api/types";
 import { FILTERS, type FilterDef, type Filters, type FilterValue } from "../config/topicFilters";
+import { knownLabels } from "../lib/topic";
 import { useResettableState } from "./useResettableState";
 
 export type TopicFilters = ReturnType<typeof useTopicFilters>;
@@ -11,7 +12,7 @@ export function useTopicFilters(projectId: string, extensions?: Extensions, seen
 
   const options = (def: FilterDef) => {
     const defined = def.source ? (extensions?.[def.source] ?? []) : [];
-    return def.source === "topic_label" ? [...defined, ...seenLabels.filter((l) => !defined.includes(l))] : defined;
+    return def.source === "topic_label" ? knownLabels(defined, seenLabels) : defined;
   };
   const available = FILTERS.filter((def) => def.kind === "date" || options(def).length > 0);
   const addable = available.filter(({ key }) => !(key in filters));

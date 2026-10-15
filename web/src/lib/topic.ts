@@ -1,4 +1,5 @@
-import type { Topic } from "../api/types";
+import type { Extensions, Topic } from "../api/types";
+import { TOPIC_EDIT_ACTIONS } from "../config/permissions";
 import { CLOSED_STATUSES } from "../config/topicStatus";
 
 export const isClosed = (t: Topic) => CLOSED_STATUSES.has((t.topic_status ?? "").toLowerCase());
@@ -11,3 +12,12 @@ function dueAt(due: string) {
 }
 
 export const isOverdue = (t: Topic, now = new Date()) => Boolean(t.due_date) && !isClosed(t) && dueAt(t.due_date!) < now;
+
+// Labels from the project extensions plus those seen on topics, as servers often leave topic_label empty
+export const knownLabels = (defined: string[] = [], seen: string[] = []) => [
+  ...defined,
+  ...seen.filter((l) => !defined.includes(l)),
+];
+
+export const canEditTopics = (extensions?: Extensions) =>
+  TOPIC_EDIT_ACTIONS.every((a) => extensions?.project_actions?.includes(a));

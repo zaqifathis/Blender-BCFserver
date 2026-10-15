@@ -1,9 +1,7 @@
 import type { Topic } from "../../api/types";
-import { STRINGS } from "../../config/strings";
 import { cx } from "../../lib/format";
-import { isOverdue } from "../../lib/topic";
-import { Badge } from "../common/Badge";
-import { MetaRow, MetaText } from "../common/MetaRow";
+import { MetaRow } from "../common/MetaRow";
+import { TopicKindBadges } from "../topic/TopicKindBadges";
 import styles from "./TopicListItem.module.css";
 
 type Props = { topic: Topic; selected: boolean; onSelect: () => void };
@@ -13,10 +11,7 @@ export function TopicListItem({ topic, selected, onSelect }: Props) {
     <button class={cx(styles.topic, selected && styles.selected)} onClick={onSelect}>
       <span class={styles.title}>{topic.title}</span>
       <MetaRow>
-        {isOverdue(topic) && <Badge kind="due" value={STRINGS.topic.overdue} />}
-        <Badge kind="status" value={topic.topic_status} />
-        <Badge kind="prio" value={topic.priority} />
-        {topic.assigned_to && <MetaText>{topic.assigned_to}</MetaText>}
+        <TopicKindBadges topic={topic} />
       </MetaRow>
     </button>
   );
