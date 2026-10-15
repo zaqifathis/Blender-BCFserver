@@ -5,9 +5,15 @@ import { ErrorMessage } from "../common/StatusMessage";
 import { CommentList } from "./CommentList";
 import styles from "./CommentsSection.module.css";
 
-type Props = { comments: AsyncState<Comment[]>; newestFirst: boolean; onToggleOrder: () => void };
+type Props = {
+  comments: AsyncState<Comment[]>;
+  newestFirst: boolean;
+  onToggleOrder: () => void;
+  selectedId?: string;
+  onSelect: (commentId?: string) => void;
+};
 
-export function CommentsSection({ comments, newestFirst, onToggleOrder }: Props) {
+export function CommentsSection({ comments, newestFirst, onToggleOrder, selectedId, onSelect }: Props) {
   const { topic } = STRINGS;
   return (
     <section>
@@ -19,7 +25,7 @@ export function CommentsSection({ comments, newestFirst, onToggleOrder }: Props)
         </button>
       </h3>
       <ErrorMessage error={comments.error} />
-      <CommentList comments={comments.data ?? []} />
+      <CommentList comments={comments.data ?? []} selectedId={selectedId} onSelect={onSelect} />
     </section>
   );
 }

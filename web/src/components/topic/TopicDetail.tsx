@@ -19,7 +19,10 @@ type Props = { projectId: string; topic: Topic; newestFirst: boolean; onToggleOr
 export function TopicDetail({ projectId, topic, newestFirst, onToggleOrder }: Props) {
   const { comments, viewpoints, documentReferences, documents, files } = useTopicDetail(projectId, topic.guid, newestFirst);
   const [snapshotSettled, setSnapshotSettled] = useState(false);
+  const [commentId, setCommentId] = useState<string>();
   const firstViewpoint = viewpoints.data?.[0];
+  // The selected comment's viewpoint replaces the topic's first one
+  const viewpointId = comments.data?.find((c) => c.guid === commentId)?.viewpoint_guid ?? firstViewpoint?.guid;
   const ready =
     isSettled(comments) &&
     isSettled(viewpoints) &&
@@ -37,14 +40,21 @@ export function TopicDetail({ projectId, topic, newestFirst, onToggleOrder }: Pr
           <TopicBadges topic={topic} />
           <TopicFacts topic={topic} />
           {topic.description && <p class={styles.description}>{topic.description}</p>}
-          <CommentsSection comments={comments} newestFirst={newestFirst} onToggleOrder={onToggleOrder} />
+          <CommentsSection
+            comments={comments}
+            newestFirst={newestFirst}
+            onToggleOrder={onToggleOrder}
+            selectedId={commentId}
+            onSelect={setCommentId}
+          />
         </div>
         <aside class={styles.aside}>
-          {firstViewpoint && (
+          {viewpointId && (
             <ViewpointSnapshot
+              key={viewpointId}
               projectId={projectId}
               topicId={topic.guid}
-              viewpointId={firstViewpoint.guid}
+              viewpointId={viewpointId}
               onSettled={() => setSnapshotSettled(true)}
             />
           )}

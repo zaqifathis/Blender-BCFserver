@@ -1,10 +1,40 @@
 .comment {
   border-top: 1px solid var(--line);
-  padding: var(--space-5) 0;
+  padding: var(--space-2) 0;
+}
+
+.plain,
+.selectable {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+}
+
+.selectable {
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: none;
+  cursor: pointer;
+}
+
+.selectable:hover {
+  background: var(--line);
+}
+
+.selected,
+.selected:hover {
+  background: var(--accent-bg);
 }
 
 .date {
   color: var(--muted);
+}
+
+.viewpoint {
+  margin-left: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--accent);
 }
 
 .text {

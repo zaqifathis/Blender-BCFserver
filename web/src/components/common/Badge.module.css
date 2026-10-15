@@ -18,6 +18,7 @@
   color: var(--muted);
 }
 
+.due,
 .prio-critical,
 .prio-high {
   background: var(--bad-bg);
