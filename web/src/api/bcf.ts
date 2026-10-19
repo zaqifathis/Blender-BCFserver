@@ -7,6 +7,7 @@ import type {
   DocumentReference,
   Extensions,
   Project,
+  RelatedTopic,
   Snapshot,
   Topic,
   TopicFile,
@@ -61,6 +62,13 @@ export const updateComment = (projectId: string, topicId: string, commentId: str
 
 export const deleteComment = (projectId: string, topicId: string, commentId: string) =>
   request<null>(ENDPOINTS.deleteComment, { project_id: projectId, topic_id: topicId, comment_id: commentId });
+
+export const listRelatedTopics = (projectId: string, topicId: string) =>
+  request<RelatedTopic[]>(ENDPOINTS.relatedTopics, { project_id: projectId, topic_id: topicId });
+
+// Replaces the topic's whole list of related topics
+export const updateRelatedTopics = (projectId: string, topicId: string, related: RelatedTopic[]) =>
+  request<RelatedTopic[]>(ENDPOINTS.updateRelatedTopics, { project_id: projectId, topic_id: topicId, related_topics: related });
 
 // A viewpoint holding only a snapshot image, e.g. an uploaded screenshot
 export const createSnapshotViewpoint = (projectId: string, topicId: string, snapshot: Snapshot) =>

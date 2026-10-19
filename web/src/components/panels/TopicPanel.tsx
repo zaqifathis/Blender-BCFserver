@@ -13,10 +13,12 @@ type Props = {
   editing: TopicEditing;
   extensions?: Extensions;
   labelOptions: string[];
+  // Every topic of the project, unfiltered, for related topics
+  topics: Topic[];
   canEdit: boolean;
 };
 
-export function TopicPanel({ connected, projectId, topic, editing, extensions, labelOptions, canEdit }: Props) {
+export function TopicPanel({ connected, projectId, topic, editing, extensions, labelOptions, topics, canEdit }: Props) {
   // Comment order is kept across topics
   const [newestFirst, setNewestFirst] = useState(false);
 
@@ -30,6 +32,7 @@ export function TopicPanel({ connected, projectId, topic, editing, extensions, l
         topic={edited}
         extensions={extensions}
         labelOptions={labelOptions}
+        topics={topics}
         onSaved={editing.saved}
         onCancel={editing.cancel}
       />
@@ -51,6 +54,8 @@ export function TopicPanel({ connected, projectId, topic, editing, extensions, l
         projectId={projectId}
         topic={topic}
         extensions={extensions}
+        topics={topics}
+        onSelectTopic={editing.select}
         newestFirst={newestFirst}
         onToggleOrder={() => setNewestFirst((n) => !n)}
         canEdit={canEdit}

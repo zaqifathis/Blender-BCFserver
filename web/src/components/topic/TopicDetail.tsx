@@ -10,6 +10,7 @@ import { StatusMessage } from "../common/StatusMessage";
 import { CommentsSection } from "./CommentsSection";
 import { DocumentsSection } from "./DocumentsSection";
 import { FilesSection } from "./FilesSection";
+import { RelatedTopicsSection } from "./RelatedTopicsSection";
 import styles from "./TopicDetail.module.css";
 import { TopicBadges } from "./TopicBadges";
 import { TopicFacts } from "./TopicFacts";
@@ -19,6 +20,9 @@ type Props = {
   projectId: string;
   topic: Topic;
   extensions?: Extensions;
+  // Every topic of the project, to name and open related topics
+  topics: Topic[];
+  onSelectTopic: (topicId: string) => void;
   newestFirst: boolean;
   onToggleOrder: () => void;
   canEdit: boolean;
@@ -26,10 +30,22 @@ type Props = {
   onDelete: () => void;
 };
 
-// Mount once per topic (keyed by guid); stays hidden until comments, viewpoints, documents, files and snapshot are in,
+// Mount once per topic (keyed by guid); stays hidden until comments, viewpoints, documents, files, related topics
+// and snapshot are in,
 // so the layout does not shift as each part arrives
-export function TopicDetail({ projectId, topic, extensions, newestFirst, onToggleOrder, canEdit, onEdit, onDelete }: Props) {
-  const { comments, viewpoints, documentReferences, documents, files, reloadComments } = useTopicDetail(
+export function TopicDetail({
+  projectId,
+  topic,
+  extensions,
+  topics,
+  onSelectTopic,
+  newestFirst,
+  onToggleOrder,
+  canEdit,
+  onEdit,
+  onDelete,
+}: Props) {
+  const { comments, viewpoints, documentReferences, documents, files, relatedTopics, reloadComments } = useTopicDetail(
     projectId,
     topic.guid,
     newestFirst,
@@ -49,6 +65,7 @@ export function TopicDetail({ projectId, topic, extensions, newestFirst, onToggl
     isSettled(documentReferences) &&
     isSettled(documents) &&
     isSettled(files) &&
+    isSettled(relatedTopics) &&
     (!firstViewpoint || firstViewpoint.guid in snapshots);
   const { actions } = STRINGS;
   const allowed = (title: string) => (canEdit ? title : actions.notAllowed);
@@ -93,6 +110,7 @@ export function TopicDetail({ projectId, topic, extensions, newestFirst, onToggl
           )}
           <DocumentsSection projectId={projectId} references={documentReferences} documents={documents.data ?? []} />
           <FilesSection files={files} />
+          <RelatedTopicsSection related={relatedTopics} topics={topics} onSelect={onSelectTopic} />
         </aside>
       </article>
     </>

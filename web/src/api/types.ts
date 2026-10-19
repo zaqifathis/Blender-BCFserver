@@ -98,6 +98,11 @@ export interface Comment {
   authorization?: { comment_actions?: string[] };
 }
 
+// Body item of the related topics GET and PUT (BCF 3.0 related_topic_GET.json / related_topic_PUT.json)
+export interface RelatedTopic {
+  related_topic_guid: string;
+}
+
 export interface Viewpoint {
   guid: string;
 }

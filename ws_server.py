@@ -97,6 +97,14 @@ def _delete_comment(client, p):
     return client.send("DELETE", f"{_topic_url(p)}/comments/{_quote(p['comment_id'])}")
 
 
+def _related_topics(client, p):
+    return client.get(f"{_topic_url(p)}/related_topics")
+
+
+def _update_related_topics(client, p):
+    return client.send("PUT", f"{_topic_url(p)}/related_topics", p["related_topics"])
+
+
 def _create_viewpoint(client, p):
     return client.send("POST", f"{_topic_url(p)}/viewpoints", p["viewpoint"])
 
@@ -120,6 +128,8 @@ HANDLERS = {
     "comments.create": _create_comment,
     "comments.update": _update_comment,
     "comments.delete": _delete_comment,
+    "related_topics.list": _related_topics,
+    "related_topics.update": _update_related_topics,
     "viewpoints.create": _create_viewpoint,
     "viewpoints.delete": _delete_viewpoint,
 }

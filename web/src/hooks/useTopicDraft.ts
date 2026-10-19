@@ -1,8 +1,10 @@
 import { useState } from "preact/hooks";
-import { createTopic, updateTopic } from "../api/bcf";
+import { createTopic, listRelatedTopics, updateRelatedTopics, updateTopic } from "../api/bcf";
 import type { Extensions, Topic, TopicPost, TopicPut } from "../api/types";
 import { STRINGS } from "../config/strings";
 import { fromDateTimeInput, toDateTimeInput } from "../lib/format";
+import { canUpdateRelatedTopics } from "../lib/topic";
+import { useAsync } from "./useAsync";
 
 // Form values; empty strings mean "not set"
 export type TopicFields = {
@@ -73,11 +75,47 @@ function toPut(f: TopicFields, original: Topic): TopicPut {
   };
 }
 
-// Form state of the topic editor; topic is undefined when adding one
-export function useTopicDraft(projectId: string, topic: Topic | undefined, extensions: Extensions | undefined, onSaved: (id: string) => void) {
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+
+// Related topics have their own PUT, sent after the topic is saved: it needs the topic's guid, which a
+// new topic only gets from its POST
+function useRelatedDraft(projectId: string, topic: Topic | undefined, extensions: Extensions | undefined) {
+  const allowed = canUpdateRelatedTopics(topic, extensions);
+  const stored = useAsync(topic ? () => listRelatedTopics(projectId, topic.guid) : null, []);
+  // As stored on the server; undefined until loaded, or when loading failed
+  const original = topic ? stored.data?.map((r) => r.related_topic_guid) : [];
+  // undefined until the user changes the list
+  const [edited, setEdited] = useState<string[]>();
+  const value = edited ?? original ?? [];
+  const changed = allowed && original !== undefined && edited !== undefined && !sameSet(edited, original);
+
+  // Returns an error message when the topic was saved but its related topics were not
+  const save = async (topicId: string) => {
+    if (!changed) return undefined;
+    try {
+      await updateRelatedTopics(projectId, topicId, value.map((guid) => ({ related_topic_guid: guid })));
+    } catch (e) {
+      return STRINGS.editor.relatedSaveFailed((e as Error).message);
+    }
+  };
+
+  return { allowed, value, set: setEdited, ready: original !== undefined, error: stored.error, save };
+}
+
+export type RelatedDraft = ReturnType<typeof useRelatedDraft>;
+
+// Form state of the topic editor; topic is undefined when adding one. onSaved gets an error when a
+// follow-up request failed after the topic itself was saved
+export function useTopicDraft(
+  projectId: string,
+  topic: Topic | undefined,
+  extensions: Extensions | undefined,
+  onSaved: (id: string, error?: string) => void,
+) {
   const [fields, setFields] = useState(() => toFields(topic, extensions));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const related = useRelatedDraft(projectId, topic, extensions);
 
   const setField = <K extends keyof TopicFields>(key: K, value: TopicFields[K]) => setFields((f) => ({ ...f, [key]: value }));
 
@@ -89,13 +127,15 @@ export function useTopicDraft(projectId: string, topic: Topic | undefined, exten
       const saved = topic
         ? await updateTopic(projectId, topic.guid, toPut(fields, topic))
         : await createTopic(projectId, toPost(fields));
+      const id = saved?.guid ?? topic!.guid;
+      const relatedError = await related.save(id);
       setSaving(false);
-      onSaved(saved?.guid ?? topic!.guid);
+      onSaved(id, relatedError);
     } catch (e) {
       setError((e as Error).message);
       setSaving(false);
     }
   };
 
-  return { fields, setField, saving, error, save };
+  return { fields, setField, related, saving, error, save };
 }

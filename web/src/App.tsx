@@ -1,5 +1,6 @@
 import { useEffect } from "preact/hooks";
-import { getExtensions } from "./api/bcf";
+import { getExtensions, listTopics } from "./api/bcf";
+import type { Topic } from "./api/types";
 import { HeaderBar } from "./components/panels/HeaderBar";
 import { TopicPanel } from "./components/panels/TopicPanel";
 import { TopicSidebar } from "./components/panels/TopicSidebar";
@@ -25,8 +26,13 @@ export function App() {
   const query = useTopicQuery(connected, projectId, filters.values);
   useEffect(() => trackLabels(query.topics.data), [query.topics.data]);
 
+  // Unfiltered, for related topics: they may be closed or hidden by the sidebar filters
+  const allTopics = useAsync(ready ? () => listTopics(projectId, "", "") : null, [connected, projectId, query.revision]);
+
   const [topicId, setTopicId] = useResettableState(projectId, "");
-  const topic = query.topics.data?.find((t) => t.guid === topicId);
+  // A related topic opened from the detail may be missing from the filtered list
+  const find = (topics?: Topic[]) => topics?.find((t) => t.guid === topicId);
+  const topic = find(query.topics.data) ?? find(allTopics.data);
   const editing = useTopicEditing(projectId, topic, setTopicId, query.reload);
   const canEdit = canEditTopics(extensions.data);
 
@@ -53,6 +59,7 @@ export function App() {
           editing={editing}
           extensions={extensions.data}
           labelOptions={knownLabels(extensions.data?.topic_label, labels)}
+          topics={allTopics.data ?? []}
           canEdit={canEdit}
         />
       }
