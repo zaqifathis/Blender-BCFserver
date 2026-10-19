@@ -10,11 +10,12 @@ type Props = {
   // Leading option with an empty value, e.g. "All"
   emptyLabel?: string;
   class?: string;
+  disabled?: boolean;
 };
 
-export function OptionSelect({ value, options, onChange, label, emptyLabel, class: className }: Props) {
+export function OptionSelect({ value, options, onChange, label, emptyLabel, class: className, disabled }: Props) {
   return (
-    <select value={value} onChange={(e) => onChange(inputValue(e))} aria-label={label} class={className}>
+    <select value={value} onChange={(e) => onChange(inputValue(e))} aria-label={label} class={className} disabled={disabled}>
       {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
       {options.map((o) => (
         <option value={o.value}>{o.label}</option>

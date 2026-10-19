@@ -23,8 +23,10 @@ export function useTopicEditing(projectId: string, topic: Topic | undefined, set
     open(undefined);
     setTopicId(id);
   };
-  const saved = (id: string) => {
+  // error: the topic was saved but a follow-up request failed, shown above the topic
+  const saved = (id: string, error?: string) => {
     open(undefined);
+    setError(error);
     setTopicId(id);
     setRevision((r) => r + 1);
     reload();

@@ -12,12 +12,14 @@ type Props = {
   topic?: Topic;
   extensions?: Extensions;
   labelOptions: string[];
-  onSaved: (topicId: string) => void;
+  // Every topic of the project, for the related topics picker
+  topics: Topic[];
+  onSaved: (topicId: string, error?: string) => void;
   onCancel: () => void;
 };
 
 // Mount once per topic; nothing reaches the server until Save
-export function TopicEditor({ projectId, topic, extensions, labelOptions, onSaved, onCancel }: Props) {
+export function TopicEditor({ projectId, topic, extensions, labelOptions, topics, onSaved, onCancel }: Props) {
   const draft = useTopicDraft(projectId, topic, extensions, onSaved);
   const { editor } = STRINGS;
 
@@ -31,7 +33,14 @@ export function TopicEditor({ projectId, topic, extensions, labelOptions, onSave
     >
       <fieldset class={styles.body} disabled={draft.saving}>
         <h2 class={styles.title}>{topic ? editor.editTopic : editor.newTopic}</h2>
-        <TopicFieldsForm fields={draft.fields} onChange={draft.setField} extensions={extensions} labelOptions={labelOptions} />
+        <TopicFieldsForm
+          fields={draft.fields}
+          onChange={draft.setField}
+          extensions={extensions}
+          labelOptions={labelOptions}
+          related={draft.related}
+          relatedOptions={topics.filter((t) => t.guid !== topic?.guid)}
+        />
       </fieldset>
       <footer class={styles.footer}>
         <ErrorMessage error={draft.error} />

@@ -1,10 +1,12 @@
-import type { Extensions } from "../../api/types";
+import type { Extensions, Topic } from "../../api/types";
 import { STRINGS } from "../../config/strings";
-import type { TopicFields } from "../../hooks/useTopicDraft";
+import type { RelatedDraft, TopicFields } from "../../hooks/useTopicDraft";
 import { inputValue } from "../../lib/dom";
 import { OptionSelect, toOptions } from "../common/OptionSelect";
+import { ErrorMessage } from "../common/StatusMessage";
 import { Field } from "./Field";
 import { LabelPicker } from "./LabelPicker";
+import { RelatedTopicsPicker } from "./RelatedTopicsPicker";
 import styles from "./TopicFieldsForm.module.css";
 
 type SelectKey = "topic_type" | "priority" | "topic_status" | "assigned_to" | "stage";
@@ -13,6 +15,9 @@ type Props = {
   onChange: <K extends keyof TopicFields>(key: K, value: TopicFields[K]) => void;
   extensions?: Extensions;
   labelOptions: string[];
+  related: RelatedDraft;
+  // Topics that can be picked as related: the project's, without the edited one
+  relatedOptions: Topic[];
 };
 
 const { editor } = STRINGS;
@@ -27,7 +32,7 @@ const SELECTS: ({ key: SelectKey; label: string; source: keyof Extensions } | { 
   { key: "stage", label: editor.stage, source: "stage" },
 ];
 
-export function TopicFieldsForm({ fields, onChange, extensions, labelOptions }: Props) {
+export function TopicFieldsForm({ fields, onChange, extensions, labelOptions, related, relatedOptions }: Props) {
   return (
     <div class={styles.grid}>
       <Field label={editor.title} required wide>
@@ -39,6 +44,13 @@ export function TopicFieldsForm({ fields, onChange, extensions, labelOptions }: 
       <Field label={editor.labels} wide group>
         <LabelPicker options={labelOptions} value={fields.labels} onChange={(labels) => onChange("labels", labels)} />
       </Field>
+      {/* Hidden when the topic (or, for a new one, the project) does not allow changing related topics */}
+      {related.allowed && (
+        <Field label={editor.relatedTopics} wide group>
+          <ErrorMessage error={related.error} />
+          <RelatedTopicsPicker topics={relatedOptions} value={related.value} onChange={related.set} disabled={!related.ready} />
+        </Field>
+      )}
       {SELECTS.map((def) => {
         if (!("source" in def)) {
           return (

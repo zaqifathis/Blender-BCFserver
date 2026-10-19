@@ -39,5 +39,5 @@ export function useTopicQuery(connected: boolean, projectId: string, filters: Fi
   }, [topics.data, search, statusFiltered, showClosed]);
 
   const reload = () => setRevision((r) => r + 1);
-  return { topics, visible, search, setSearch, sort, setSort, showClosed, setShowClosed, reload };
+  return { topics, visible, search, setSearch, sort, setSort, showClosed, setShowClosed, revision, reload };
 }

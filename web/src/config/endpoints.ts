@@ -14,6 +14,8 @@ export const ENDPOINTS = {
   createComment: "comments.create",
   updateComment: "comments.update",
   deleteComment: "comments.delete",
+  relatedTopics: "related_topics.list",
+  updateRelatedTopics: "related_topics.update",
   createViewpoint: "viewpoints.create",
   deleteViewpoint: "viewpoints.delete",
 } as const;
