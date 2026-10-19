@@ -18,3 +18,8 @@
   opacity: var(--disabled-opacity);
   cursor: default;
 }
+
+.danger:hover:not(:disabled) {
+  border-color: var(--bad);
+  color: var(--bad);
+}

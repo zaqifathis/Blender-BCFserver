@@ -21,7 +21,7 @@ from .log import logger
 
 WEB_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist")
 WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-MAX_MESSAGE = 1 << 20  # bytes; the browser only ever sends small JSON requests
+MAX_MESSAGE = 16 << 20  # bytes; the largest request is a base64 snapshot upload
 DOWNLOAD_CHUNK = 64 * 1024  # bytes per read when streaming a document to the browser
 
 
@@ -69,6 +69,42 @@ def _files(client, p):
     return client.get(f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}/files")
 
 
+def _topic_url(p):
+    return f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}"
+
+
+def _create_topic(client, p):
+    return client.send("POST", f"/projects/{_quote(p['project_id'])}/topics", p["topic"])
+
+
+def _update_topic(client, p):
+    return client.send("PUT", _topic_url(p), p["topic"])
+
+
+def _delete_topic(client, p):
+    return client.send("DELETE", _topic_url(p))
+
+
+def _create_comment(client, p):
+    return client.send("POST", f"{_topic_url(p)}/comments", p["comment"])
+
+
+def _update_comment(client, p):
+    return client.send("PUT", f"{_topic_url(p)}/comments/{_quote(p['comment_id'])}", p["comment"])
+
+
+def _delete_comment(client, p):
+    return client.send("DELETE", f"{_topic_url(p)}/comments/{_quote(p['comment_id'])}")
+
+
+def _create_viewpoint(client, p):
+    return client.send("POST", f"{_topic_url(p)}/viewpoints", p["viewpoint"])
+
+
+def _delete_viewpoint(client, p):
+    return client.send("DELETE", f"{_topic_url(p)}/viewpoints/{_quote(p['viewpoint_id'])}")
+
+
 HANDLERS = {
     "projects.list": _projects,
     "topics.list": _topics,
@@ -78,6 +114,14 @@ HANDLERS = {
     "document_references.list": _document_references,
     "documents.list": _documents,
     "files.list": _files,
+    "topics.create": _create_topic,
+    "topics.update": _update_topic,
+    "topics.delete": _delete_topic,
+    "comments.create": _create_comment,
+    "comments.update": _update_comment,
+    "comments.delete": _delete_comment,
+    "viewpoints.create": _create_viewpoint,
+    "viewpoints.delete": _delete_viewpoint,
 }
 
 
@@ -107,7 +151,9 @@ def _read_frame(sock):
     mask = _recv_exact(sock, 4) if b2 & 0x80 else None
     data = _recv_exact(sock, length)
     if mask:
-        data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
+        # XOR as one big integer; a per-byte loop takes seconds on a snapshot upload
+        key = (mask * (length // 4 + 1))[:length]
+        data = (int.from_bytes(data, "big") ^ int.from_bytes(key, "big")).to_bytes(length, "big")
     return bool(fin), opcode, data
 
 

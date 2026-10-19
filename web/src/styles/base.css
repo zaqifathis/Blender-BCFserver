@@ -11,12 +11,17 @@ body {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
   color: inherit;
 }
 
 input[type="search"],
+input[type="text"],
+input[type="date"],
+input[type="datetime-local"],
+textarea,
 select {
   width: 100%;
   padding: var(--space-3) var(--space-5);

@@ -19,6 +19,12 @@ export interface Topic {
   modified_date?: string;
   due_date?: string;
   server_assigned_id?: string;
+  // Not edited in the UI, but sent back on PUT so an update does not clear them
+  reference_links?: string[];
+  index?: number;
+  bim_snippet?: object;
+  // Only when the server includes authorization; overrides the project's topic_actions
+  authorization?: { topic_actions?: string[] };
 }
 
 export interface Extensions {
@@ -28,6 +34,58 @@ export interface Extensions {
   priority?: string[];
   users?: string[];
   stage?: string[];
+  project_actions?: string[];
+  topic_actions?: string[];
+  comment_actions?: string[];
+}
+
+// Body of a topic POST (BCF 3.0 topic_POST.json): only title is required, unset fields are left out
+export interface TopicPost {
+  title: string;
+  description?: string;
+  labels?: string[];
+  topic_type?: string;
+  priority?: string;
+  topic_status?: string;
+  due_date?: string;
+  assigned_to?: string;
+  stage?: string;
+}
+
+// Body of a topic PUT (BCF 3.0 topic_PUT.json): replaces the topic, null clears a field
+export interface TopicPut {
+  title: string;
+  description: string | null;
+  labels: string[];
+  topic_type: string | null;
+  priority: string | null;
+  topic_status: string | null;
+  due_date: string | null;
+  assigned_to: string | null;
+  stage: string | null;
+  reference_links?: string[] | null;
+  index?: number | null;
+  bim_snippet?: object;
+}
+
+// Body of a comment POST (BCF 3.0 comment_POST.json); viewpoint_guid is left out when the comment has none
+export interface CommentPost {
+  comment: string;
+  viewpoint_guid?: string;
+}
+
+// Body of a comment PUT (BCF 3.0 comment_PUT.json): replaces the comment, so its viewpoint is sent back too
+export interface CommentPut {
+  comment: string;
+  viewpoint_guid: string | null;
+}
+
+export type SnapshotType = "png" | "jpg";
+
+// Base64 image without the data: prefix
+export interface Snapshot {
+  snapshot_type: SnapshotType;
+  snapshot_data: string;
 }
 
 export interface Comment {
@@ -36,6 +94,8 @@ export interface Comment {
   author?: string;
   date?: string;
   viewpoint_guid?: string;
+  // Only when the server includes authorization; overrides the project's comment_actions
+  authorization?: { comment_actions?: string[] };
 }
 
 export interface Viewpoint {

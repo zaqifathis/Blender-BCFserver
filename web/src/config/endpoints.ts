@@ -8,6 +8,14 @@ export const ENDPOINTS = {
   documentReferences: "document_references.list",
   documents: "documents.list",
   files: "files.list",
+  createTopic: "topics.create",
+  updateTopic: "topics.update",
+  deleteTopic: "topics.delete",
+  createComment: "comments.create",
+  updateComment: "comments.update",
+  deleteComment: "comments.delete",
+  createViewpoint: "viewpoints.create",
+  deleteViewpoint: "viewpoints.delete",
 } as const;
 
 // HTTP route serving viewpoint snapshots: /<project>/<topic>/<viewpoint>

@@ -1,0 +1,14 @@
+/* Sits at the right end of a flex heading */
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-left: auto;
+}
+
+/* Square buttons */
+.actions > button {
+  width: var(--control-size);
+  height: var(--control-size);
+  min-width: 0;
+  padding: 0;
+}

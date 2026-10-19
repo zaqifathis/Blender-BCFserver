@@ -3,14 +3,10 @@
   padding: var(--space-2) 0;
 }
 
-.plain,
 .selectable {
   display: block;
   width: 100%;
   padding: var(--space-3) var(--space-4);
-}
-
-.selectable {
   text-align: left;
   border: 0;
   border-radius: var(--radius-lg);
