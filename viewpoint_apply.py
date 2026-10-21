@@ -153,15 +153,47 @@ def _object_for(guid, tool):
     return None
 
 
+def _element_for(guid, tool):
+    try:
+        return tool.Ifc.get().by_guid(guid)
+    except RuntimeError:
+        return None
+
+
+def _parts(element):
+    """Decomposed parts of ``element``, recursively (e.g. a curtain wall's plates and members).
+
+    Only decomposition counts: the spec says spatial containment is ignored for visibility.
+    """
+    for rel in getattr(element, "IsDecomposedBy", None) or ():
+        for part in rel.RelatedObjects:
+            yield part
+            yield from _parts(part)
+
+
 def _objects(components, tool, missing):
-    objs = []
+    """Blender objects of the components, plus those of their decomposed parts."""
+    objs, seen = [], set()
+
+    def add(obj):
+        if obj.name not in seen:
+            seen.add(obj.name)
+            objs.append(obj)
+
     for c in components or []:
         guid = c.get("ifc_guid")
+        element = _element_for(guid, tool) if guid else None
         obj = _object_for(guid, tool) if guid else None
-        if obj is None:
+        if obj is not None:
+            add(obj)
+        found = obj is not None
+        for part in _parts(element) if element is not None else ():
+            part_obj = tool.Ifc.get_object(part)
+            if part_obj is not None and bpy.context.view_layer.objects.get(part_obj.name):
+                add(part_obj)
+                found = True
+        if not found:
             missing.append(guid or c.get("authoring_tool_id") or "?")
-        else:
-            objs.append(obj)
     return objs
 
 
@@ -178,18 +210,18 @@ def _apply_visibility(vis, tool, missing):
     """Spec order: default visibility, then the category hints, then the exceptions."""
     default = bool(vis.get("default_visibility", False))
     hints = vis.get("view_setup_hints") or {}
-    hidden_classes = tuple(
-        cls
+    # Each hint acts as the default visibility for its own class only
+    class_defaults = [
+        (cls, bool(hints.get(key, False)))
         for cls, key in (("IfcSpace", "spaces_visible"), ("IfcOpeningElement", "openings_visible"))
-        if not hints.get(key, False)
-    )
+    ]
     exceptions = {o.name for o in _objects(vis.get("exceptions"), tool, missing)}
 
     for obj in bpy.context.view_layer.objects:
         element = tool.Ifc.get_entity(obj)
         if element is None:
             continue
-        visible = default and not any(element.is_a(cls) for cls in hidden_classes)
+        visible = next((v for cls, v in class_defaults if element.is_a(cls)), default)
         if obj.name in exceptions:
             visible = not default
         _set_hidden(obj, not visible)
@@ -231,6 +263,21 @@ def _apply_selection(selection, tool, missing):
 
 
 # --- entry points ---------------------------------------------------------------------
+
+
+def _guids(vp):
+    components = vp.get("components") or {}
+    groups = [components.get("selection"), (components.get("visibility") or {}).get("exceptions")]
+    groups += [c.get("components") for c in components.get("coloring") or []]
+    return {c["ifc_guid"] for group in groups for c in group or [] if c.get("ifc_guid")}
+
+
+def model_matches(vp):
+    """Whether the loaded model holds any component the viewpoint refers to."""
+    tool = _bonsai()
+    if tool.Ifc.get() is None:
+        return False
+    return any(_element_for(guid, tool) is not None for guid in _guids(vp))
 
 
 def apply(vp):

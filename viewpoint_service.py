@@ -33,16 +33,22 @@ def show(client, p):
     # The topic's own model is always the one shown: a different loaded model is replaced
     found = ifc_loader.locate(client, project_id, topic_id)
     loaded = blender_bridge.run_on_main(viewpoint_apply.loaded_path)
-    ifc_path = None
+    ifc_path, matched_by_guid = None, False
     if "document" in found:
         wanted = ifc_loader.download(client, project_id, found["document"])
         if loaded is None or os.path.normcase(os.path.abspath(loaded)) != os.path.normcase(wanted):
             ifc_path = wanted
     else:
-        # Stored elsewhere: only a model the user loaded by hand under one of the topic's file names will do
+        # Stored elsewhere: a model the user loaded by hand will do if it carries one of the topic's
+        # file names, or else holds components of the viewpoint (file names are often logical
+        # names, e.g. "BCF-ARK" for a model saved as Architectural.ifc)
         names = {n.lower() for n in (found.get("external") or {}).get("filenames", [])}
-        if loaded is None or os.path.basename(loaded).lower() not in names:
+        if loaded is None:
             return {"status": "needs_ifc", **found}
+        if os.path.basename(loaded).lower() not in names:
+            if not blender_bridge.run_on_main(lambda: viewpoint_apply.model_matches(vp)):
+                return {"status": "needs_ifc", **found}
+            matched_by_guid = True
 
     def run():
         if ifc_path:
@@ -50,5 +56,9 @@ def show(client, p):
         return viewpoint_apply.apply(vp)
 
     summary = blender_bridge.run_on_main(run, timeout=LOAD_TIMEOUT)
+    if matched_by_guid:
+        summary["warnings"].insert(
+            0, f"Shown on the loaded model {os.path.basename(loaded)}, which the topic does not name"
+        )
     logger.info("Viewpoint applied: %s", ", ".join(summary["applied"]) or "nothing")
     return {"status": "applied", **summary}
