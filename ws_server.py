@@ -113,8 +113,15 @@ def _delete_viewpoint(client, p):
     return client.send("DELETE", f"{_topic_url(p)}/viewpoints/{_quote(p['viewpoint_id'])}")
 
 
+def _show_viewpoint(client, p):
+    from . import viewpoint_service  # imports bpy, so only when a viewpoint is actually shown
+
+    return viewpoint_service.show(client, p)
+
+
 HANDLERS = {
     "projects.list": _projects,
+    "viewpoints.show": _show_viewpoint,
     "topics.list": _topics,
     "extensions.get": _extensions,
     "comments.list": _comments,
@@ -298,6 +305,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             with send_lock:
                 sock.sendall(_frame(opcode, data))
 
+        def reply(text):
+            try:
+                send(0x1, json.dumps(self._dispatch(text)).encode())
+            except OSError:
+                pass  # the panel went away before the answer was ready
+
         message = b""
         try:
             while True:
@@ -313,7 +326,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                         break
                     if fin:
                         text, message = message, b""
-                        send(0x1, json.dumps(self._dispatch(text)).encode())
+                        # Own thread: showing a viewpoint can download and load a model for minutes
+                        threading.Thread(target=reply, args=(text,), daemon=True).start()
         except (ConnectionError, OSError):
             pass
         finally:

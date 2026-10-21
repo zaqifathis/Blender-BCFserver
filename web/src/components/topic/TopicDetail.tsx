@@ -14,6 +14,7 @@ import { RelatedTopicsSection } from "./RelatedTopicsSection";
 import styles from "./TopicDetail.module.css";
 import { TopicBadges } from "./TopicBadges";
 import { TopicFacts } from "./TopicFacts";
+import { ShowInBlender } from "./ShowInBlender";
 import { ViewpointSnapshot } from "./ViewpointSnapshot";
 
 type Props = {
@@ -108,6 +109,7 @@ export function TopicDetail({
               onSettled={(shown) => setSnapshots((s) => ({ ...s, [viewpointId]: shown }))}
             />
           )}
+          {viewpointId && <ShowInBlender key={viewpointId} projectId={projectId} topicId={topic.guid} viewpointId={viewpointId} />}
           <DocumentsSection projectId={projectId} references={documentReferences} documents={documents.data ?? []} />
           <FilesSection files={files} />
           <RelatedTopicsSection related={relatedTopics} topics={topics} onSelect={onSelectTopic} />

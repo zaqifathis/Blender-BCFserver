@@ -107,6 +107,11 @@ export interface Viewpoint {
   guid: string;
 }
 
+// Outcome of showing a viewpoint in Blender: applied, or the model must be loaded by hand first
+export type ShowViewpointResult =
+  | { status: "applied"; applied: string[]; missing: number; warnings: string[] }
+  | { status: "needs_ifc"; external?: { filename?: string | null; url?: string | null } };
+
 // Points either at a document stored on the server (document_guid) or at an external url
 export interface DocumentReference {
   guid: string;

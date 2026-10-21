@@ -2,7 +2,9 @@ import webbrowser
 
 import bpy
 
-from . import log, session, ws_server
+from bpy_extras.io_utils import ImportHelper
+
+from . import log, session, viewpoint_apply, ws_server
 
 
 def _tag_redraw():
@@ -109,4 +111,30 @@ class BCF_OT_open_ui(bpy.types.Operator):
 
     def execute(self, context):
         webbrowser.open(ws_server.url())
+        return {"FINISHED"}
+
+
+class BCF_OT_load_ifc(bpy.types.Operator, ImportHelper):
+    bl_idname = "bcf.load_ifc"
+    bl_label = "Load IFC Model"
+    bl_description = "Load the IFC model of a topic by hand, e.g. when it is stored outside the BCF server"
+
+    filter_glob: bpy.props.StringProperty(default="*.ifc;*.ifczip", options={"HIDDEN"})
+
+    def execute(self, context):
+        try:
+            viewpoint_apply.load_ifc(self.filepath)
+        except Exception as e:
+            self.report({"ERROR"}, str(e))
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class BCF_OT_reset_viewpoint(bpy.types.Operator):
+    bl_idname = "bcf.reset_viewpoint"
+    bl_label = "Reset Viewpoint"
+    bl_description = "Restore the visibility and colours changed by shown viewpoints"
+
+    def execute(self, context):
+        viewpoint_apply.reset()
         return {"FINISHED"}

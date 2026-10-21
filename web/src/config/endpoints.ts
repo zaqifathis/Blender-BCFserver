@@ -5,6 +5,7 @@ export const ENDPOINTS = {
   extensions: "extensions.get",
   comments: "comments.list",
   viewpoints: "viewpoints.list",
+  showViewpoint: "viewpoints.show",
   documentReferences: "document_references.list",
   documents: "documents.list",
   files: "files.list",

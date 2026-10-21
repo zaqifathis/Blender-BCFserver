@@ -58,6 +58,11 @@ class BCF_PT_main_panel(bpy.types.Panel):
         else:
             box.operator("bcf.start_ws_server", text="Start Server", icon="PLAY")
 
+        box = layout.box()
+        box.label(text="Viewpoints", icon="CAMERA_DATA")
+        box.operator("bcf.load_ifc", icon="FILEBROWSER")
+        box.operator("bcf.reset_viewpoint", icon="LOOP_BACK")
+
 
 class BCF_PT_log_panel(bpy.types.Panel):
     bl_label = "BCF Log"

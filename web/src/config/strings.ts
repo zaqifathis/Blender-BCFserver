@@ -55,6 +55,12 @@ export const STRINGS = {
     snapshotAlt: "Viewpoint snapshot",
     hasViewpoint: "📷 Viewpoint",
     showViewpoint: "Show this comment's viewpoint snapshot",
+    showInBlender: "Show in Blender",
+    showingInBlender: "Showing…",
+    shownInBlender: (missing: number) =>
+      missing ? `Shown in Blender; ${missing} component(s) not found in the model` : "Shown in Blender",
+    needsIfc: (name?: string) =>
+      `The model${name ? ` ${name}` : ""} is not stored on the BCF server. Download it and load it in Blender ("Load IFC Model" in the BCF panel), then try again.`,
     selectComment: "Select this comment",
     newComment: "Write a comment",
     comments: "Comments",
