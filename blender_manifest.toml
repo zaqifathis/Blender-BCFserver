@@ -30,5 +30,6 @@ paths_exclude_pattern = [
   "web/*.ts",
   "web/index.html",
   "style.md",
+  "DECISIONS.md",
   "build.ps1",
 ]

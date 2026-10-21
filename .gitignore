@@ -4,3 +4,4 @@ __pycache__/
 style.md
 web/node_modules/
 web/dist/
+DECISIONS.md
