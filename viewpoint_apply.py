@@ -230,7 +230,8 @@ def _guids(vp):
 def model_matches(vp):
     """Whether the loaded models hold any component the viewpoint refers to."""
     index = ifc_import.objects_by_guid()
-    return any(guid in index for guid in _guids(vp))
+    # Elements without geometry of their own (e.g. a curtain wall made of its parts) have no object
+    return any(guid in index or ifc_import.element(guid) is not None for guid in _guids(vp))
 
 
 def apply(vp):
