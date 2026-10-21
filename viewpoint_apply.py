@@ -12,6 +12,7 @@ from mathutils import Matrix, Vector
 from .log import logger
 
 CAMERA_NAME = "BCF Viewpoint"
+LARGE_LIST = 1000  # spec: alert the user above this many listed components
 
 
 class BonsaiMissing(RuntimeError):
@@ -118,9 +119,12 @@ def _apply_camera(vp, tool):
         obj = bpy.data.objects.new(CAMERA_NAME, bpy.data.cameras.new(CAMERA_NAME))
         bpy.context.scene.collection.objects.link(obj)
     data = obj.data
+    # BCF gives the vertical extent (field of view or view-to-world scale) and width / height
     data.sensor_fit = "VERTICAL"
+    data.shift_x = data.shift_y = 0.0
     scene = bpy.context.scene
-    aspect = cam.get("aspect_ratio") or 1.0
+    aspect = cam.get("aspect_ratio") or 1.0  # spec: assume 1.0 when missing (older BCF)
+    scene.render.pixel_aspect_x = scene.render.pixel_aspect_y = 1.0
     scene.render.resolution_x = max(1, round(scene.render.resolution_y * aspect))
     if ortho:
         data.type = "ORTHO"
@@ -131,7 +135,11 @@ def _apply_camera(vp, tool):
 
     back = -_vec(cam["camera_direction"]).normalized()
     up = _vec(cam["camera_up_vector"]).normalized()
-    right = up.cross(back).normalized()
+    right = up.cross(back)
+    if right.length < 1e-9:
+        # Spec: the vectors may be neither zero length nor parallel
+        raise ValueError("The viewpoint camera direction and up vector are zero or parallel")
+    right.normalize()
     up = back.cross(right)
     loc = _vec(cam["camera_view_point"])
     matrix = [[right[i], up[i], back[i], loc[i]] for i in range(3)] + [[0, 0, 0, 1]]
@@ -198,12 +206,14 @@ def _objects(components, tool, missing):
 
 
 def _remember_hide(obj):
-    _saved["hide"].setdefault(obj.name, obj.hide_get())
+    _saved["hide"].setdefault(obj.name, (obj.hide_get(), obj.hide_viewport))
 
 
 def _set_hidden(obj, hidden):
     _remember_hide(obj)
     obj.hide_set(hidden)
+    if not hidden:
+        obj.hide_viewport = False  # Bonsai loads spaces (and openings) disabled in viewports
 
 
 def _apply_visibility(vis, tool, missing):
@@ -213,7 +223,11 @@ def _apply_visibility(vis, tool, missing):
     # Each hint acts as the default visibility for its own class only
     class_defaults = [
         (cls, bool(hints.get(key, False)))
-        for cls, key in (("IfcSpace", "spaces_visible"), ("IfcOpeningElement", "openings_visible"))
+        for cls, key in (
+            ("IfcSpace", "spaces_visible"),
+            ("IfcRelSpaceBoundary", "space_boundaries_visible"),
+            ("IfcOpeningElement", "openings_visible"),
+        )
     ]
     exceptions = {o.name for o in _objects(vis.get("exceptions"), tool, missing)}
 
@@ -223,7 +237,9 @@ def _apply_visibility(vis, tool, missing):
             continue
         visible = next((v for cls, v in class_defaults if element.is_a(cls)), default)
         if obj.name in exceptions:
-            visible = not default
+            # Exceptions invert what the default and the hints decided (see the spec's example:
+            # with SpacesVisible a listed space is hidden, even though DefaultVisibility is false)
+            visible = not visible
         _set_hidden(obj, not visible)
 
 
@@ -287,12 +303,22 @@ def apply(vp):
         raise RuntimeError("No IFC model is loaded in Bonsai")
     warnings, applied, missing = [], [], []
 
-    if _apply_camera(vp, tool):
-        applied.append("camera")
-    else:
-        warnings.append("The server sent no camera for this viewpoint, so the view was not moved")
+    try:
+        if _apply_camera(vp, tool):
+            applied.append("camera")
+        else:
+            warnings.append("The server sent no camera for this viewpoint, so the view was not moved")
+    except ValueError as e:
+        warnings.append(f"{e}, so the view was not moved")
 
     components = vp.get("components") or {}
+    for label, count in (
+        ("selected", len(components.get("selection") or [])),
+        ("visibility exception", len((components.get("visibility") or {}).get("exceptions") or [])),
+        ("coloured", sum(len(c.get("components") or []) for c in components.get("coloring") or [])),
+    ):
+        if count > LARGE_LIST:
+            warnings.append(f"{count} {label} components: BCF asks to keep such lists under {LARGE_LIST}")
     if components.get("visibility") is not None:
         _apply_visibility(components["visibility"], tool, missing)
         applied.append("visibility")
@@ -315,10 +341,11 @@ def apply(vp):
 
 def reset():
     """Undo the visibility and colours set by viewpoints (the camera object stays)."""
-    for name, hidden in _saved["hide"].items():
+    for name, (hidden, hide_viewport) in _saved["hide"].items():
         obj = bpy.data.objects.get(name)
         if obj and bpy.context.view_layer.objects.get(name):
             obj.hide_set(hidden)
+            obj.hide_viewport = hide_viewport
     for name, color in _saved["color"].items():
         obj = bpy.data.objects.get(name)
         if obj:
