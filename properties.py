@@ -1,5 +1,12 @@
 import bpy
-from bpy.props import IntProperty, StringProperty
+from bpy.props import CollectionProperty, FloatVectorProperty, IntProperty, StringProperty
+
+
+class BCFModel(bpy.types.PropertyGroup):
+    """An IFC model loaded into the scene (see ifc_import)."""
+
+    filepath: StringProperty(name="File", subtype="FILE_PATH")
+    collection: StringProperty(name="Collection", description="Collection holding the model's objects")
 
 
 class BCFConnectProperties(bpy.types.PropertyGroup):
@@ -14,6 +21,14 @@ class BCFConnectProperties(bpy.types.PropertyGroup):
         default=8765,
         min=1024,
         max=65535,
+    )
+    models: CollectionProperty(type=BCFModel)
+    active_model: IntProperty(name="Active Model", default=0)
+    origin_offset: FloatVectorProperty(
+        name="Origin Offset",
+        description="Metres the loaded models were shifted by, so far-away coordinates keep their precision",
+        size=3,
+        subtype="TRANSLATION",
     )
 
 

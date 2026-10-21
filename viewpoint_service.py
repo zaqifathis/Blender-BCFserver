@@ -1,4 +1,4 @@
-"""Show a server viewpoint in Blender: fetch it, make sure its IFC model is loaded, apply it.
+"""Show a server viewpoint in Blender: fetch it, make sure its IFC models are loaded, apply it.
 
 Runs on a web server thread; everything touching bpy goes through the main-thread bridge.
 """
@@ -6,7 +6,7 @@ Runs on a web server thread; everything touching bpy goes through the main-threa
 import os
 import urllib.parse
 
-from . import blender_bridge, ifc_loader, viewpoint_apply
+from . import blender_bridge, ifc_import, ifc_loader, viewpoint_apply
 from .log import logger
 
 LOAD_TIMEOUT = 300  # seconds; loading a large model takes a while
@@ -30,35 +30,33 @@ def show(client, p):
             except Exception as e:
                 logger.warning("Viewpoint %s unavailable: %s", part, e)
 
-    # The topic's own model is always the one shown: a different loaded model is replaced
+    # The topic's models stored on the server are added to the ones already loaded
     found = ifc_loader.locate(client, project_id, topic_id)
-    loaded = blender_bridge.run_on_main(viewpoint_apply.loaded_path)
-    ifc_path, matched_by_guid = None, False
-    if "document" in found:
-        wanted = ifc_loader.download(client, project_id, found["document"])
-        if loaded is None or os.path.normcase(os.path.abspath(loaded)) != os.path.normcase(wanted):
-            ifc_path = wanted
-    else:
-        # Stored elsewhere: a model the user loaded by hand will do if it carries one of the topic's
-        # file names, or else holds components of the viewpoint (file names are often logical
-        # names, e.g. "BCF-ARK" for a model saved as Architectural.ifc)
-        names = {n.lower() for n in (found.get("external") or {}).get("filenames", [])}
-        if loaded is None:
+    documents = found.get("documents", [])
+    for doc in documents:
+        path = ifc_loader.download(client, project_id, doc)
+        if not blender_bridge.run_on_main(ifc_import.is_loaded, path):
+            data = ifc_import.read(path)  # parsing is the slow part, so it stays off the main thread
+            blender_bridge.run_on_main(ifc_import.build, path, doc.get("filename"), data, timeout=LOAD_TIMEOUT)
+
+    # Stored elsewhere: a model the user loaded by hand will do if it carries one of the topic's
+    # file names, or else holds components of the viewpoint (file names are often logical
+    # names, e.g. "BCF-ARK" for a model saved as Architectural.ifc)
+    names = {n.lower(): n for n in (found.get("external") or {}).get("filenames", [])}
+    loaded = blender_bridge.run_on_main(ifc_import.loaded)
+    if not loaded:
+        return {"status": "needs_ifc", **found}
+    loaded_names = {n.lower() for path, name in loaded for n in (name, os.path.basename(path))}
+    matched_by_guid = False
+    if not documents and not names.keys() & loaded_names:
+        if not blender_bridge.run_on_main(viewpoint_apply.model_matches, vp):
             return {"status": "needs_ifc", **found}
-        if os.path.basename(loaded).lower() not in names:
-            if not blender_bridge.run_on_main(lambda: viewpoint_apply.model_matches(vp)):
-                return {"status": "needs_ifc", **found}
-            matched_by_guid = True
+        matched_by_guid = True
 
-    def run():
-        if ifc_path:
-            viewpoint_apply.load_ifc(ifc_path)
-        return viewpoint_apply.apply(vp)
-
-    summary = blender_bridge.run_on_main(run, timeout=LOAD_TIMEOUT)
+    summary = blender_bridge.run_on_main(viewpoint_apply.apply, vp)
     if matched_by_guid:
-        summary["warnings"].insert(
-            0, f"Shown on the loaded model {os.path.basename(loaded)}, which the topic does not name"
-        )
+        summary["warnings"].insert(0, "Shown on the loaded models, which the topic does not name")
+    elif unloaded := sorted(n for k, n in names.items() if k not in loaded_names):
+        summary["warnings"].insert(0, f"Not loaded: {', '.join(unloaded)}")
     logger.info("Viewpoint applied: %s", ", ".join(summary["applied"]) or "nothing")
     return {"status": "applied", **summary}

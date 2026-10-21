@@ -5,6 +5,7 @@ if "bpy" in locals():
     importlib.reload(bcf_api)
     importlib.reload(blender_bridge)
     importlib.reload(ifc_loader)
+    importlib.reload(ifc_import)
     importlib.reload(viewpoint_apply)
     importlib.reload(viewpoint_service)
     importlib.reload(ws_server)
@@ -18,6 +19,7 @@ else:
         bcf_api,
         blender_bridge,
         ifc_loader,
+        ifc_import,
         viewpoint_apply,
         viewpoint_service,
         ws_server,
@@ -30,6 +32,7 @@ else:
 import bpy
 
 classes = (
+    properties.BCFModel,
     properties.BCFConnectProperties,
     properties.BCFConnectPreferences,
     operators.BCF_OT_connect,
@@ -39,7 +42,9 @@ classes = (
     operators.BCF_OT_start_ws_server,
     operators.BCF_OT_open_ui,
     operators.BCF_OT_load_ifc,
+    operators.BCF_OT_remove_ifc,
     operators.BCF_OT_reset_viewpoint,
+    panel.BCF_UL_models,
     panel.BCF_PT_main_panel,
     panel.BCF_PT_log_panel,
 )

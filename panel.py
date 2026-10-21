@@ -15,6 +15,13 @@ STATUS_ICONS = {
 }
 
 
+class BCF_UL_models(bpy.types.UIList):
+    """The IFC models loaded for showing viewpoints."""
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        layout.label(text=item.name, icon="FILE_3D")
+
+
 class BCF_PT_main_panel(bpy.types.Panel):
     bl_label = "BCFserver-Connect"
     bl_idname = "BCF_PT_main_panel"
@@ -60,7 +67,13 @@ class BCF_PT_main_panel(bpy.types.Panel):
 
         box = layout.box()
         box.label(text="Viewpoints", icon="CAMERA_DATA")
-        box.operator("bcf.load_ifc", icon="FILEBROWSER")
+        if not props.models:
+            box.label(text="No IFC models loaded", icon="INFO")
+        row = box.row()
+        row.template_list("BCF_UL_models", "", props, "models", props, "active_model", rows=3)
+        col = row.column(align=True)
+        col.operator("bcf.load_ifc", text="", icon="ADD")
+        col.operator("bcf.remove_ifc", text="", icon="REMOVE")
         box.operator("bcf.reset_viewpoint", icon="LOOP_BACK")
 
 

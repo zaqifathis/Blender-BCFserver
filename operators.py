@@ -1,10 +1,11 @@
+import os
 import webbrowser
 
 import bpy
 
 from bpy_extras.io_utils import ImportHelper
 
-from . import log, session, viewpoint_apply, ws_server
+from . import ifc_import, log, session, viewpoint_apply, ws_server
 
 
 def _tag_redraw():
@@ -116,17 +117,43 @@ class BCF_OT_open_ui(bpy.types.Operator):
 
 class BCF_OT_load_ifc(bpy.types.Operator, ImportHelper):
     bl_idname = "bcf.load_ifc"
-    bl_label = "Load IFC Model"
-    bl_description = "Load the IFC model of a topic by hand, e.g. when it is stored outside the BCF server"
+    bl_label = "Add IFC Model"
+    bl_description = "Add IFC models by hand, e.g. when a topic's model is stored outside the BCF server"
 
     filter_glob: bpy.props.StringProperty(default="*.ifc;*.ifczip", options={"HIDDEN"})
+    files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={"HIDDEN", "SKIP_SAVE"})
+    directory: bpy.props.StringProperty(subtype="DIR_PATH", options={"HIDDEN", "SKIP_SAVE"})
 
     def execute(self, context):
-        try:
-            viewpoint_apply.load_ifc(self.filepath)
-        except Exception as e:
-            self.report({"ERROR"}, str(e))
-            return {"CANCELLED"}
+        paths = [os.path.join(self.directory, f.name) for f in self.files if f.name] or [self.filepath]
+        skipped = []
+        for path in paths:
+            try:
+                if not ifc_import.add(path):
+                    skipped.append(os.path.basename(path))
+            except Exception as e:
+                self.report({"ERROR"}, f"{os.path.basename(path)}: {e}")
+                return {"CANCELLED"}
+        if skipped:
+            self.report({"INFO"}, f"Already loaded: {', '.join(skipped)}")
+        _tag_redraw()
+        return {"FINISHED"}
+
+
+class BCF_OT_remove_ifc(bpy.types.Operator):
+    bl_idname = "bcf.remove_ifc"
+    bl_label = "Remove IFC Model"
+    bl_description = "Remove the selected IFC model and its objects from the scene"
+    bl_options = {"UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        props = context.scene.bcf_connect
+        return 0 <= props.active_model < len(props.models)
+
+    def execute(self, context):
+        ifc_import.remove(context.scene.bcf_connect.active_model)
+        _tag_redraw()
         return {"FINISHED"}
 
 

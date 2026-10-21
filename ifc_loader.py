@@ -29,8 +29,9 @@ def _web_url(value):
 
 
 def locate(client, project_id, topic_id):
-    """Where the topic's model lives: ``{"document": {guid, filename}}`` for a file on the server,
-    ``{"external": {filename, url}}`` for one elsewhere, or ``{}`` when the topic names none."""
+    """Where the topic's models live: ``{"documents": [{guid, filename}, ...]}`` for files on the
+    server and ``{"external": {filenames, filename, url}}`` for files elsewhere. Either key is left
+    out when empty, so ``{}`` means the topic names no model."""
     base = f"/projects/{_quote(project_id)}"
     files = client.get(f"{base}/topics/{_quote(topic_id)}/files") or []
     refs = client.get(f"{base}/topics/{_quote(topic_id)}/document_references") or []
@@ -39,28 +40,38 @@ def locate(client, project_id, topic_id):
     except Exception:  # server without the Documents API
         documents = {}
 
-    # A header file may point at a stored document by guid or by file name
+    found, names, url = {}, [], None
+
+    def stored(doc):
+        if doc and _is_ifc(doc.get("filename")):
+            found.setdefault(doc["guid"], doc)
+            return True
+        return False
+
+    # A header file may point at a stored document by guid or by file name; the ones that don't
+    # are stored elsewhere
     for f in files:
         ref, name = f.get("reference"), f.get("filename")
         doc = documents.get(ref) or next((d for d in documents.values() if name and d.get("filename") == name), None)
-        if doc and _is_ifc(doc.get("filename")):
-            return {"document": doc}
+        if not stored(doc):
+            if name:
+                names.append(name)
+            if _web_url(ref):
+                url = url or ref
     for r in refs:
-        doc = documents.get(r.get("document_guid"))
-        if doc and _is_ifc(doc.get("filename")):
-            return {"document": doc}
+        if not stored(documents.get(r.get("document_guid"))):
+            # An external reference counts when it points at an IFC file
+            ref_name = os.path.basename(urllib.parse.urlparse(r.get("url") or "").path)
+            if _is_ifc(ref_name):
+                names.append(ref_name)
+                url = url or r["url"]
 
-    # Not on the server: every file the topic names, plus any IFC an external reference points at
-    names = [f["filename"] for f in files if f.get("filename")]
-    url = next((f["reference"] for f in files if _web_url(f.get("reference"))), None)
-    for r in refs:
-        ref_name = os.path.basename(urllib.parse.urlparse(r.get("url") or "").path)
-        if _is_ifc(ref_name):
-            names.append(ref_name)
-            url = url or r["url"]
-    if not names and not url:
-        return {}
-    return {"external": {"filenames": names, "filename": ", ".join(names) or None, "url": url}}
+    result = {}
+    if found:
+        result["documents"] = list(found.values())
+    if names or url:
+        result["external"] = {"filenames": names, "filename": ", ".join(names) or None, "url": url}
+    return result
 
 
 def download(client, project_id, document):

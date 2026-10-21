@@ -1,7 +1,7 @@
 """Apply a BCF viewpoint (BCF-API JSON) to the Blender scene.
 
-Main thread only (call through ``blender_bridge.run_on_main``). The IFC model is
-loaded and queried through Bonsai, imported lazily so the add-on loads without it.
+Main thread only (call through ``blender_bridge.run_on_main``). Works on the models
+loaded by ``ifc_import``, matched to the viewpoint's components by IFC GlobalId.
 """
 
 import math
@@ -9,22 +9,10 @@ import math
 import bpy
 from mathutils import Matrix, Vector
 
-from .log import logger
+from . import ifc_import
 
 CAMERA_NAME = "BCF Viewpoint"
 LARGE_LIST = 1000  # spec: alert the user above this many listed components
-
-
-class BonsaiMissing(RuntimeError):
-    pass
-
-
-def _bonsai():
-    try:
-        from bonsai import tool
-    except ImportError as e:
-        raise BonsaiMissing("Bonsai is required to show viewpoints: install the Bonsai extension") from e
-    return tool
 
 
 # Original state of the objects a viewpoint touched, kept on the objects themselves so
@@ -54,35 +42,6 @@ def _viewport_override():
     return {}
 
 
-def loaded_path():
-    """Path of the IFC file Bonsai has loaded, or None."""
-    tool = _bonsai()
-    return (tool.Ifc.get_path() or "") if tool.Ifc.get() is not None else None
-
-
-def unload_model():
-    """Remove the loaded model: its Blender objects and Bonsai's IFC data."""
-    tool = _bonsai()
-    if tool.Ifc.get() is None:
-        return
-    for obj in [o for o in bpy.data.objects if tool.Ifc.get_entity(o) is not None]:
-        bpy.data.objects.remove(obj)
-    bpy.ops.bim.convert_to_blender()
-    _saved_shading.clear()
-    logger.info("Unloaded the previous IFC model")
-
-
-def load_ifc(path):
-    """Load ``path`` into Bonsai, replacing any model already loaded."""
-    tool = _bonsai()
-    unload_model()
-    with bpy.context.temp_override(**_viewport_override()):
-        bpy.ops.bim.load_project(filepath=path, should_start_fresh_session=False)
-    if tool.Ifc.get() is None:
-        raise RuntimeError("Bonsai could not load the IFC file; see the Blender console")
-    logger.info("Loaded IFC model %s", path)
-
-
 # --- camera ---------------------------------------------------------------------------
 
 
@@ -90,28 +49,7 @@ def _vec(p):
     return Vector((p["x"], p["y"], p["z"]))
 
 
-def _to_local(matrix, tool):
-    """Undo Bonsai's georeference offset, as Bonsai does for its own BCF viewpoints."""
-    props = tool.Georeference.get_georeference_props()
-    if not props.has_blender_offset:
-        return matrix
-    import ifcopenshell.util.geolocation
-    import ifcopenshell.util.unit
-    import numpy as np
-
-    scale = ifcopenshell.util.unit.calculate_unit_scale(tool.Ifc.get())
-    local = ifcopenshell.util.geolocation.global2local(
-        np.array(matrix),
-        float(props.blender_offset_x) * scale,
-        float(props.blender_offset_y) * scale,
-        float(props.blender_offset_z) * scale,
-        float(props.blender_x_axis_abscissa),
-        float(props.blender_x_axis_ordinate),
-    )
-    return local.tolist()
-
-
-def _apply_camera(vp, tool):
+def _apply_camera(vp):
     ortho, persp = vp.get("orthogonal_camera"), vp.get("perspective_camera")
     cam = ortho or persp
     if not cam:
@@ -144,9 +82,9 @@ def _apply_camera(vp, tool):
         raise ValueError("The viewpoint camera direction and up vector are zero or parallel")
     right.normalize()
     up = back.cross(right)
-    loc = _vec(cam["camera_view_point"])
-    matrix = [[right[i], up[i], back[i], loc[i]] for i in range(3)] + [[0, 0, 0, 1]]
-    obj.matrix_world = Matrix(_to_local(matrix, tool))
+    # The models were shifted by the same offset when loaded
+    loc = _vec(cam["camera_view_point"]) - ifc_import.offset()
+    obj.matrix_world = Matrix([[right[i], up[i], back[i], loc[i]] for i in range(3)] + [[0, 0, 0, 1]])
 
     scene.camera = obj
     for _area, space in _view3d_spaces():
@@ -157,18 +95,10 @@ def _apply_camera(vp, tool):
 # --- components -----------------------------------------------------------------------
 
 
-def _object_for(guid, tool):
-    obj = tool.Ifc.get_object_by_identifier(guid)
-    if obj is not None and bpy.context.view_layer.objects.get(obj.name):
-        return obj
-    return None
-
-
-def _element_for(guid, tool):
-    try:
-        return tool.Ifc.get().by_guid(guid)
-    except RuntimeError:
-        return None
+def _objects_for(guid, index):
+    """The guid's objects in the current view layer (one per model that holds it)."""
+    layer = bpy.context.view_layer.objects
+    return [o for o in index.get(guid, ()) if layer.get(o.name)]
 
 
 def _parts(element):
@@ -182,7 +112,7 @@ def _parts(element):
             yield from _parts(part)
 
 
-def _objects(components, tool, missing):
+def _objects(components, index, missing):
     """Blender objects of the components, plus those of their decomposed parts."""
     objs, seen = [], set()
 
@@ -193,14 +123,13 @@ def _objects(components, tool, missing):
 
     for c in components or []:
         guid = c.get("ifc_guid")
-        element = _element_for(guid, tool) if guid else None
-        obj = _object_for(guid, tool) if guid else None
-        if obj is not None:
+        element = ifc_import.element(guid) if guid else None
+        own = _objects_for(guid, index) if guid else []
+        for obj in own:
             add(obj)
-        found = obj is not None
+        found = bool(own)
         for part in _parts(element) if element is not None else ():
-            part_obj = tool.Ifc.get_object(part)
-            if part_obj is not None and bpy.context.view_layer.objects.get(part_obj.name):
+            for part_obj in _objects_for(part.GlobalId, index):
                 add(part_obj)
                 found = True
         if not found:
@@ -220,7 +149,13 @@ def _set_hidden(obj, hidden):
         obj.hide_viewport = False  # Bonsai loads spaces (and openings) disabled in viewports
 
 
-def _apply_visibility(vis, tool, missing):
+def _is_a(obj, cls):
+    element = ifc_import.element(obj[ifc_import.GUID])
+    # The stored class stands in when the model's file can no longer be read
+    return element.is_a(cls) if element is not None else obj.get(ifc_import.CLASS) == cls
+
+
+def _apply_visibility(vis, index, missing):
     """Spec order: default visibility, then the category hints, then the exceptions."""
     default = bool(vis.get("default_visibility", False))
     hints = vis.get("view_setup_hints") or {}
@@ -233,13 +168,12 @@ def _apply_visibility(vis, tool, missing):
             ("IfcOpeningElement", "openings_visible"),
         )
     ]
-    exceptions = {o.name for o in _objects(vis.get("exceptions"), tool, missing)}
+    exceptions = {o.name for o in _objects(vis.get("exceptions"), index, missing)}
 
     for obj in bpy.context.view_layer.objects:
-        element = tool.Ifc.get_entity(obj)
-        if element is None:
+        if not obj.get(ifc_import.GUID):
             continue
-        visible = next((v for cls, v in class_defaults if element.is_a(cls)), default)
+        visible = next((v for cls, v in class_defaults if _is_a(obj, cls)), default)
         if obj.name in exceptions:
             # Exceptions invert what the default and the hints decided (see the spec's example:
             # with SpacesVisible a listed space is hidden, even though DefaultVisibility is false)
@@ -256,11 +190,11 @@ def _parse_color(value):
     return (r, g, b, a)
 
 
-def _apply_coloring(coloring, tool, missing):
+def _apply_coloring(coloring, index, missing):
     count = 0
     for group in coloring:
         color = _parse_color(group["color"])
-        for obj in _objects(group.get("components"), tool, missing):
+        for obj in _objects(group.get("components"), index, missing):
             if SAVED_COLOR not in obj:
                 obj[SAVED_COLOR] = list(obj.color)
             obj.color = color
@@ -272,8 +206,8 @@ def _apply_coloring(coloring, tool, missing):
     return count
 
 
-def _apply_selection(selection, tool, missing):
-    objs = _objects(selection, tool, missing)
+def _apply_selection(selection, index, missing):
+    objs = _objects(selection, index, missing)
     for obj in bpy.context.view_layer.objects:
         obj.select_set(False)
     for obj in objs:
@@ -294,22 +228,20 @@ def _guids(vp):
 
 
 def model_matches(vp):
-    """Whether the loaded model holds any component the viewpoint refers to."""
-    tool = _bonsai()
-    if tool.Ifc.get() is None:
-        return False
-    return any(_element_for(guid, tool) is not None for guid in _guids(vp))
+    """Whether the loaded models hold any component the viewpoint refers to."""
+    index = ifc_import.objects_by_guid()
+    return any(guid in index for guid in _guids(vp))
 
 
 def apply(vp):
-    """Apply viewpoint JSON to the loaded model. Returns a summary for the web UI."""
-    tool = _bonsai()
-    if tool.Ifc.get() is None:
-        raise RuntimeError("No IFC model is loaded in Bonsai")
+    """Apply viewpoint JSON to the loaded models. Returns a summary for the web UI."""
+    if not ifc_import.loaded():
+        raise RuntimeError("No IFC model is loaded")
+    index = ifc_import.objects_by_guid()
     warnings, applied, missing = [], [], []
 
     try:
-        if _apply_camera(vp, tool):
+        if _apply_camera(vp):
             applied.append("camera")
         else:
             warnings.append("The server sent no camera for this viewpoint, so the view was not moved")
@@ -325,20 +257,20 @@ def apply(vp):
         if count > LARGE_LIST:
             warnings.append(f"{count} {label} components: BCF asks to keep such lists under {LARGE_LIST}")
     if components.get("visibility") is not None:
-        _apply_visibility(components["visibility"], tool, missing)
+        _apply_visibility(components["visibility"], index, missing)
         applied.append("visibility")
     if components.get("coloring"):
-        _apply_coloring(components["coloring"], tool, missing)
+        _apply_coloring(components["coloring"], index, missing)
         applied.append("coloring")
     if components.get("selection") is not None:
-        _apply_selection(components["selection"], tool, missing)
+        _apply_selection(components["selection"], index, missing)
         applied.append("selection")
 
     for key, label in (("clipping_planes", "clipping planes"), ("lines", "lines"), ("bitmaps", "bitmaps")):
         if vp.get(key):
             warnings.append(f"Viewpoint {label} are not shown yet")
     if missing:
-        warnings.append(f"{len(set(missing))} component(s) not found in the loaded model")
+        warnings.append(f"{len(set(missing))} component(s) not found in the loaded models")
     for _area, space in _view3d_spaces():
         space.region_3d.update()
     return {"applied": applied, "missing": len(set(missing)), "warnings": warnings}
