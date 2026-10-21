@@ -27,8 +27,12 @@ def _bonsai():
     return tool
 
 
-# Original state of everything a viewpoint touched, so reset() can undo it
-_saved = {"hide": {}, "color": {}, "shading": {}}
+# Original state of the objects a viewpoint touched, kept on the objects themselves so
+# reset() still works after the add-on (and its module state) is reloaded
+SAVED_HIDE = "bcf_saved_hide"
+SAVED_COLOR = "bcf_saved_color"
+# Viewport shading is not an ID, so it can only be remembered in memory
+_saved_shading = {}
 
 
 def _view3d_spaces():
@@ -64,8 +68,7 @@ def unload_model():
     for obj in [o for o in bpy.data.objects if tool.Ifc.get_entity(o) is not None]:
         bpy.data.objects.remove(obj)
     bpy.ops.bim.convert_to_blender()
-    for saved in _saved.values():
-        saved.clear()
+    _saved_shading.clear()
     logger.info("Unloaded the previous IFC model")
 
 
@@ -206,7 +209,8 @@ def _objects(components, tool, missing):
 
 
 def _remember_hide(obj):
-    _saved["hide"].setdefault(obj.name, (obj.hide_get(), obj.hide_viewport))
+    if SAVED_HIDE not in obj:
+        obj[SAVED_HIDE] = [int(obj.hide_get()), int(obj.hide_viewport)]
 
 
 def _set_hidden(obj, hidden):
@@ -257,12 +261,13 @@ def _apply_coloring(coloring, tool, missing):
     for group in coloring:
         color = _parse_color(group["color"])
         for obj in _objects(group.get("components"), tool, missing):
-            _saved["color"].setdefault(obj.name, tuple(obj.color))
+            if SAVED_COLOR not in obj:
+                obj[SAVED_COLOR] = list(obj.color)
             obj.color = color
             count += 1
     if count:
         for _area, space in _view3d_spaces():
-            _saved["shading"].setdefault(id(space), (space, space.shading.color_type))
+            _saved_shading.setdefault(id(space), (space, space.shading.color_type))
             space.shading.color_type = "OBJECT"
     return count
 
@@ -341,19 +346,19 @@ def apply(vp):
 
 def reset():
     """Undo the visibility and colours set by viewpoints (the camera object stays)."""
-    for name, (hidden, hide_viewport) in _saved["hide"].items():
-        obj = bpy.data.objects.get(name)
-        if obj and bpy.context.view_layer.objects.get(name):
-            obj.hide_set(hidden)
-            obj.hide_viewport = hide_viewport
-    for name, color in _saved["color"].items():
-        obj = bpy.data.objects.get(name)
-        if obj:
-            obj.color = color
-    for space, color_type in _saved["shading"].values():
+    for obj in bpy.data.objects:
+        if SAVED_HIDE in obj:
+            hidden, hide_viewport = obj[SAVED_HIDE]
+            if bpy.context.view_layer.objects.get(obj.name):
+                obj.hide_set(bool(hidden))
+            obj.hide_viewport = bool(hide_viewport)
+            del obj[SAVED_HIDE]
+        if SAVED_COLOR in obj:
+            obj.color = tuple(obj[SAVED_COLOR])
+            del obj[SAVED_COLOR]
+    for space, color_type in _saved_shading.values():
         try:
             space.shading.color_type = color_type
         except ReferenceError:
             pass
-    for saved in _saved.values():
-        saved.clear()
+    _saved_shading.clear()
