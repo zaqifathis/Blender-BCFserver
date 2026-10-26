@@ -184,13 +184,25 @@ def _apply_visibility(vis, index, missing):
             continue
         hinted = next((v for cls, v in class_defaults if _is_a(obj, cls)), None)
         visible = default if hinted is None else hinted
-        # Spaces, boundaries and openings follow an exception only when listed themselves: a
-        # storey aggregates its spaces, and excepting the storey must not bring them in view
-        if obj.name in exceptions and (hinted is None or obj[ifc_import.GUID] in listed):
-            # Exceptions invert what the default and the hints decided (see the spec's example:
-            # with SpacesVisible a listed space is hidden, even though DefaultVisibility is false)
+        if obj.name in exceptions and hinted is None:
             visible = not visible
+        elif obj[ifc_import.GUID] in listed and hinted is not None:
+            # Spaces, boundaries and openings follow an exception only when listed themselves: a
+            # storey aggregates its spaces, and excepting the storey must not bring them in view.
+            # A listed one is shown only when both the default and its hint hide the class: the
+            # spec's example hides a listed space with SpacesVisible, and with DefaultVisibility
+            # alone the exceptions are the components to hide (a hint of false means no visible
+            # spaces at all, see the optimization rules)
+            visible = not (default or hinted)
         _set_hidden(obj, not visible)
+
+
+def _apply_models(models):
+    """Hide the loaded models the topic does not refer to."""
+    keep = {ifc_import.key(p) for p in models}
+    for obj in bpy.context.view_layer.objects:
+        if obj.get(ifc_import.MODEL) and ifc_import.key(obj[ifc_import.MODEL]) not in keep:
+            _set_hidden(obj, True)
 
 
 def _parse_color(value):
@@ -358,8 +370,11 @@ def model_matches(vp):
     return any(guid in index or ifc_import.element(guid) is not None for guid in _guids(vp))
 
 
-def apply(vp):
-    """Apply viewpoint JSON to the loaded models. Returns a summary for the web UI."""
+def apply(vp, models=None):
+    """Apply viewpoint JSON to the loaded models. Returns a summary for the web UI.
+
+    ``models``: paths of the models the topic refers to; the others are hidden. None shows all.
+    """
     if not ifc_import.loaded():
         raise RuntimeError("No IFC model is loaded")
     index = ifc_import.objects_by_guid()
@@ -384,6 +399,9 @@ def apply(vp):
     if components.get("visibility") is not None:
         _apply_visibility(components["visibility"], index, missing)
         applied.append("visibility")
+    if models is not None:
+        _apply_models(models)
+        applied.append("models")
     if components.get("coloring"):
         _apply_coloring(components["coloring"], index, missing)
         applied.append("coloring")

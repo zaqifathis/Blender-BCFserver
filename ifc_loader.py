@@ -30,8 +30,9 @@ def _web_url(value):
 
 def locate(client, project_id, topic_id):
     """Where the topic's models live: ``{"documents": [{guid, filename}, ...]}`` for files on the
-    server and ``{"external": {filenames, filename, url}}`` for files elsewhere. Either key is left
-    out when empty, so ``{}`` means the topic names no model."""
+    server and ``{"external": {filenames, filename, url}}`` for files elsewhere, plus the GlobalIds
+    of their IfcProjects as ``"projects"``. Each key is left out when empty, so ``{}`` means the
+    topic names no model."""
     base = f"/projects/{_quote(project_id)}"
     files = client.get(f"{base}/topics/{_quote(topic_id)}/files") or []
     refs = client.get(f"{base}/topics/{_quote(topic_id)}/document_references") or []
@@ -71,6 +72,8 @@ def locate(client, project_id, topic_id):
         result["documents"] = list(found.values())
     if names or url:
         result["external"] = {"filenames": names, "filename": ", ".join(names) or None, "url": url}
+    if projects := [f["ifc_project"] for f in files if f.get("ifc_project")]:
+        result["projects"] = projects
     return result
 
 

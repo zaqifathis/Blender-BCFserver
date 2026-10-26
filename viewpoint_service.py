@@ -55,28 +55,35 @@ def show(client, p):
     # The topic's models stored on the server are added to the ones already loaded
     found = ifc_loader.locate(client, project_id, topic_id)
     documents = found.get("documents", [])
+    topic_paths = []
     for doc in documents:
         path = ifc_loader.download(client, project_id, doc)
+        topic_paths.append(path)
         if not blender_bridge.run_on_main(ifc_import.is_loaded, path):
             data = ifc_import.read(path)  # parsing is the slow part, so it stays off the main thread
             blender_bridge.run_on_main(ifc_import.build, path, doc.get("filename"), data, timeout=LOAD_TIMEOUT)
 
     # Stored elsewhere: a model the user loaded by hand will do if it carries one of the topic's
-    # file names, or else holds components of the viewpoint (file names are often logical
-    # names, e.g. "BCF-ARK" for a model saved as Architectural.ifc)
+    # file names or IfcProjects, or else holds components of the viewpoint (file names are often
+    # logical names, e.g. "BCF-ARK" for a model saved as Architectural.ifc)
     names = {n.lower(): n for n in (found.get("external") or {}).get("filenames", [])}
+    projects = set(found.get("projects", []))
     loaded = blender_bridge.run_on_main(ifc_import.loaded)
     if not loaded:
         return {"status": "needs_ifc", **found}
     loaded_names = {n.lower() for path, name in loaded for n in (name, os.path.basename(path))}
-    matched_by_guid = False
-    if not documents and not names.keys() & loaded_names:
-        if not blender_bridge.run_on_main(viewpoint_apply.model_matches, vp):
-            return {"status": "needs_ifc", **found}
-        matched_by_guid = True
+    topic_paths += [
+        path
+        for path, name in loaded
+        if {name.lower(), os.path.basename(path).lower()} & names.keys()
+        or (projects and blender_bridge.run_on_main(ifc_import.project_guid, path) in projects)
+    ]
+    if not topic_paths and not blender_bridge.run_on_main(viewpoint_apply.model_matches, vp):
+        return {"status": "needs_ifc", **found}
 
-    summary = blender_bridge.run_on_main(viewpoint_apply.apply, vp)
-    if matched_by_guid:
+    # The other loaded models are hidden, unless the topic's own could not be told apart
+    summary = blender_bridge.run_on_main(viewpoint_apply.apply, vp, topic_paths or None)
+    if not topic_paths:
         summary["warnings"].insert(0, "Shown on the loaded models, which the topic does not name")
     elif unloaded := sorted(n for k, n in names.items() if k not in loaded_names):
         summary["warnings"].insert(0, f"Not loaded: {', '.join(unloaded)}")

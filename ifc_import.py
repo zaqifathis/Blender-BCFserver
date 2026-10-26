@@ -86,6 +86,13 @@ def element(guid):
     return None
 
 
+def project_guid(path):
+    """GlobalId of a loaded model's IfcProject, or None."""
+    f = file_for(path)
+    projects = f.by_type("IfcProject") if f is not None else ()
+    return projects[0].GlobalId if projects else None
+
+
 def objects_by_guid():
     """GlobalId -> Blender objects; a GlobalId may be in more than one model."""
     index = {}
