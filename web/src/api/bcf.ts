@@ -1,4 +1,4 @@
-import { DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
+import { BITMAP_PATH, DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
 import type {
   CapturedViewpoint,
   Comment,
@@ -32,8 +32,14 @@ export const listComments = (projectId: string, topicId: string, orderby: string
 export const listViewpoints = (projectId: string, topicId: string) =>
   request<Viewpoint[]>(ENDPOINTS.viewpoints, { project_id: projectId, topic_id: topicId });
 
-export const snapshotUrl = (projectId: string, topicId: string, viewpointId: string) =>
-  `${SNAPSHOT_PATH}/${[projectId, topicId, viewpointId].map(encodeURIComponent).join("/")}`;
+// With download (a file name without extension) the image is sent as an attachment of that name
+const downloadQuery = (download?: string) => (download ? `?download=${encodeURIComponent(download)}` : "");
+
+export const snapshotUrl = (projectId: string, topicId: string, viewpointId: string, download?: string) =>
+  `${SNAPSHOT_PATH}/${[projectId, topicId, viewpointId].map(encodeURIComponent).join("/")}` + downloadQuery(download);
+
+export const bitmapUrl = (projectId: string, topicId: string, viewpointId: string, bitmapId: string, download?: string) =>
+  `${BITMAP_PATH}/${[projectId, topicId, viewpointId, bitmapId].map(encodeURIComponent).join("/")}` + downloadQuery(download);
 
 export const listDocumentReferences = (projectId: string, topicId: string) =>
   request<DocumentReference[]>(ENDPOINTS.documentReferences, { project_id: projectId, topic_id: topicId });

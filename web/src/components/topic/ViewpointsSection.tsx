@@ -16,6 +16,7 @@ import { canDeleteViewpoint, canEditComment } from "../../lib/topic";
 import { AddViewIcon, DeleteIcon, EyeIcon } from "../common/icons/ActionIcons";
 import { IconButton } from "../common/IconButton";
 import { ErrorMessage } from "../common/StatusMessage";
+import { ViewpointDownloadButton } from "./ViewpointDownloadButton";
 import thumbStyles from "./ViewpointThumb.module.css";
 import { ViewpointThumb } from "./ViewpointThumb";
 import styles from "./ViewpointsSection.module.css";
@@ -159,6 +160,17 @@ export function ViewpointsSection(props: Props) {
             <IconButton label={topic.showInBlender} onClick={show} disabled={busy}>
               <EyeIcon />
             </IconButton>
+          )}
+          {shown && (
+            <ViewpointDownloadButton
+              key={shown.guid}
+              projectId={projectId}
+              topicId={topicId}
+              viewpoint={shown}
+              number={viewpoints.indexOf(shown) + 1}
+              hasSnapshot={!noSnapshot[shown.guid]}
+              disabled={busy}
+            />
           )}
           <IconButton
             label={topic.addBlenderView}

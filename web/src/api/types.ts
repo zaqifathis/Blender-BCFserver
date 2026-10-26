@@ -104,8 +104,15 @@ export interface RelatedTopic {
   related_topic_guid: string;
 }
 
+// A bitmap image placed in a viewpoint's scene; the image itself is fetched separately
+export interface Bitmap {
+  guid: string;
+  bitmap_type?: "png" | "jpg";
+}
+
 export interface Viewpoint {
   guid: string;
+  bitmaps?: Bitmap[] | null;
   // Sort order; servers may leave it out
   index?: number | null;
   // Only when the server includes authorization; overrides the project's viewpoint_actions

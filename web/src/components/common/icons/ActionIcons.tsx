@@ -35,6 +35,14 @@ export const EyeIcon = () => (
   </Icon>
 );
 
+// Download the viewpoint's images
+export const DownloadIcon = () => (
+  <Icon>
+    <path d="M12 4v11M7 10l5 5 5-5" />
+    <path d="M5 20h14" />
+  </Icon>
+);
+
 // Capture the Blender view as a new viewpoint
 export const AddViewIcon = () => (
   <Icon>

@@ -236,10 +236,13 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/ws" and is_ws:
             return self._websocket()
+        query = urllib.parse.parse_qs(parsed.query)
         if path.startswith("/api/snapshot/"):
-            return self._snapshot(path)
+            return self._viewpoint_image(path, 3, query.get("download", [""])[0])
+        if path.startswith("/api/bitmap/"):
+            return self._viewpoint_image(path, 4, query.get("download", [""])[0])
         if path.startswith("/api/document/"):
-            return self._document(path, urllib.parse.parse_qs(parsed.query).get("name", [""])[0])
+            return self._document(path, query.get("name", [""])[0])
         self._static(path)
 
     def _static(self, path):
@@ -253,20 +256,35 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         with open(full, "rb") as f:
             self._send(200, f.read(), mimetypes.guess_type(full)[0] or "application/octet-stream")
 
-    def _snapshot(self, path):
+    def _viewpoint_image(self, path, count, download):
+        """A viewpoint's snapshot (project, topic, viewpoint) or one of its bitmaps (..., bitmap).
+
+        With ``download`` (a file name without extension) it is sent as an attachment of that name.
+        """
         client = self.server.get_client()
-        parts = path.split("/")[3:]  # project, topic, viewpoint
-        if client is None or len(parts) != 3:
+        parts = path.split("/")[3:]
+        if client is None or len(parts) != count:
             return self._send(404, b"Not found")
         try:
-            project, topic, viewpoint = (urllib.parse.unquote(p) for p in parts)
-            resp = client.get_raw(
-                f"/projects/{_quote(project)}/topics/{_quote(topic)}/viewpoints/{_quote(viewpoint)}/snapshot"
-            )
+            project, topic, viewpoint, *bitmap = (urllib.parse.unquote(p) for p in parts)
+            endpoint = f"/projects/{_quote(project)}/topics/{_quote(topic)}/viewpoints/{_quote(viewpoint)}"
+            endpoint += f"/bitmaps/{_quote(bitmap[0])}" if bitmap else "/snapshot"
+            resp = client.get_raw(endpoint)
         except Exception as e:
-            logger.warning("Snapshot failed: %s", e)
-            return self._send(502, b"Snapshot unavailable")
-        self._send(200, resp.content, resp.headers.get("Content-Type", "image/png"))
+            logger.warning("Viewpoint image failed: %s", e)
+            return self._send(502, b"Image unavailable")
+        ctype = resp.headers.get("Content-Type", "image/png")
+        if not download:
+            return self._send(200, resp.content, ctype)
+        ext = mimetypes.guess_extension(ctype.split(";")[0].strip()) or ".png"
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(resp.content)))
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{_quote(download + ext)}")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(resp.content)
 
     def _document(self, path, name):
         client = self.server.get_client()

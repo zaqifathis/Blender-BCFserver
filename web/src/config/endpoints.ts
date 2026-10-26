@@ -25,5 +25,8 @@ export const ENDPOINTS = {
 // HTTP route serving viewpoint snapshots: /<project>/<topic>/<viewpoint>
 export const SNAPSHOT_PATH = "/api/snapshot";
 
+// HTTP route serving viewpoint bitmaps: /<project>/<topic>/<viewpoint>/<bitmap>
+export const BITMAP_PATH = "/api/bitmap";
+
 // HTTP route downloading project documents: /<project>/<document>?name=<filename>
 export const DOCUMENT_PATH = "/api/document";

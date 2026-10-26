@@ -1,0 +1,31 @@
+.anchor {
+  position: relative;
+  display: flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-menu);
+  min-width: var(--menu-width);
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.item {
+  display: block;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-5);
+  color: inherit;
+  text-decoration: none;
+}
+
+.item:hover {
+  background: var(--accent-bg);
+}
