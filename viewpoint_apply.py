@@ -1,7 +1,9 @@
 """Apply a BCF viewpoint (BCF-API JSON) to the Blender scene.
 
 Main thread only (call through ``blender_bridge.run_on_main``). Works on the models
-loaded by ``ifc_import``, matched to the viewpoint's components by IFC GlobalId.
+loaded by ``ifc_import``, matched to the viewpoint's components by IFC GlobalId. Clipping
+planes cut the viewports; lines and bitmaps go into their own collection, replaced by the next
+viewpoint. Bitmaps are read from the local file the caller put in each bitmap's ``"file"``.
 """
 
 import math
@@ -12,6 +14,12 @@ from mathutils import Matrix, Vector
 from . import ifc_import
 
 CAMERA_NAME = "BCF Viewpoint"
+MARKUP_NAME = "BCF Markup"  # collection of the viewpoint's lines and bitmaps
+LINES_NAME = "BCF Lines"
+LINE_COLOR = (1.0, 0.0, 0.0, 1.0)  # BCF gives lines no colour or width
+LINE_RADIUS = 0.03  # metres
+MAX_CLIP_PLANES = 6  # what a Blender viewport holds
+NO_CLIP = (0.0, 0.0, 1.0, 1e9)  # fills unused clip planes: keeps everything
 LARGE_LIST = 1000  # spec: alert the user above this many listed components
 
 
@@ -32,14 +40,14 @@ def _view3d_spaces():
                         yield area, space
 
 
-def _viewport_override():
+def _view3d_overrides():
+    """Context overrides for running operators in each 3D view."""
     for window in bpy.context.window_manager.windows:
         for area in window.screen.areas:
             if area.type == "VIEW_3D":
                 region = next((r for r in area.regions if r.type == "WINDOW"), None)
                 if region:
-                    return {"window": window, "screen": window.screen, "area": area, "region": region}
-    return {}
+                    yield {"window": window, "screen": window.screen, "area": area, "region": region}
 
 
 # --- camera ---------------------------------------------------------------------------
@@ -217,6 +225,118 @@ def _apply_selection(selection, index, missing):
     return len(objs)
 
 
+# --- clipping planes, lines and bitmaps -----------------------------------------------
+
+
+def _apply_clipping(planes):
+    """Cut the viewports with the planes, as Alt+B does. Returns how many were left out."""
+    shift = ifc_import.offset()
+    clip = []
+    for plane in planes:
+        direction = _vec(plane["direction"])
+        if direction.length < 1e-9 or len(clip) == MAX_CLIP_PLANES:
+            continue  # a zero direction would clip everything
+        direction.normalize()
+        # BCF's direction points into the clipped half; Blender keeps where n.p + d > 0
+        clip.append((*-direction, direction.dot(_vec(plane["location"]) - shift)))
+    if clip:
+        for override in _view3d_overrides():
+            rv3d = override["area"].spaces.active.region_3d
+            if not rv3d.use_clip_planes:
+                # Setting the planes alone does not cut solid shading: Alt+B over the whole view
+                # sets up the clipping state the draw engines need, then the planes are replaced
+                region = override["region"]
+                with bpy.context.temp_override(**override):
+                    bpy.ops.view3d.clip_border(
+                        xmin=0, xmax=region.width, ymin=0, ymax=region.height, wait_for_input=False
+                    )
+            rv3d.clip_planes = clip + [NO_CLIP] * (MAX_CLIP_PLANES - len(clip))
+    return len(planes) - len(clip)
+
+
+def _markup_collection():
+    collection = bpy.data.collections.get(MARKUP_NAME)
+    if collection is None:
+        collection = bpy.data.collections.new(MARKUP_NAME)
+    if collection.name not in bpy.context.scene.collection.children:
+        bpy.context.scene.collection.children.link(collection)
+    return collection
+
+
+def _apply_lines(lines):
+    shift = ifc_import.offset()
+    curve = bpy.data.curves.new(LINES_NAME, "CURVE")
+    curve.dimensions = "3D"
+    curve.bevel_depth = LINE_RADIUS
+    for line in lines:
+        spline = curve.splines.new("POLY")
+        spline.points.add(1)
+        for point, key in zip(spline.points, ("start_point", "end_point")):
+            point.co = (*(_vec(line[key]) - shift), 1.0)
+    mat = bpy.data.materials.get(LINES_NAME) or bpy.data.materials.new(LINES_NAME)
+    mat.diffuse_color = LINE_COLOR
+    curve.materials.append(mat)
+    obj = bpy.data.objects.new(LINES_NAME, curve)
+    obj.color = LINE_COLOR  # shown when colouring switched the viewport to object colours
+    _markup_collection().objects.link(obj)
+
+
+def _apply_bitmaps(bitmaps):
+    """Show each bitmap as an image empty. Returns how many could not be shown."""
+    shift = ifc_import.offset()
+    skipped = 0
+    for bitmap in bitmaps:
+        path = bitmap.get("file")
+        try:
+            image = bpy.data.images.load(path, check_existing=False) if path else None
+        except RuntimeError:
+            image = None
+        if image is None or not image.size[1]:
+            skipped += 1
+            continue
+        image.pack()  # the downloaded file is only cached, the .blend keeps the image
+
+        normal = _vec(bitmap["normal"]).normalized()
+        right = _vec(bitmap["up"]).cross(normal)
+        if right.length < 1e-9:
+            bpy.data.images.remove(image)
+            skipped += 1
+            continue
+        right.normalize()
+        up = normal.cross(right)
+        loc = _vec(bitmap["location"]) - shift
+
+        obj = bpy.data.objects.new(f"BCF Bitmap {bitmap.get('guid', '')}".strip(), None)
+        obj.empty_display_type = "IMAGE"
+        obj.data = image
+        obj.use_empty_image_alpha = True
+        # The empty's size is the image's longer side; BCF gives the height
+        width, height = image.size
+        obj.empty_display_size = bitmap["height"] * max(width, height) / height
+        obj.matrix_world = Matrix([[right[i], up[i], normal[i], loc[i]] for i in range(3)] + [[0, 0, 0, 1]])
+        _markup_collection().objects.link(obj)
+    return skipped
+
+
+def _clear_markup():
+    """Remove the lines, bitmaps and clipping a viewpoint added."""
+    collection = bpy.data.collections.get(MARKUP_NAME)
+    if collection is not None:
+        for obj in list(collection.objects):
+            data = obj.data
+            bpy.data.objects.remove(obj)
+            if isinstance(data, bpy.types.Curve) and data.users == 0:
+                bpy.data.curves.remove(data)
+            elif isinstance(data, bpy.types.Image) and data.users == 0:
+                bpy.data.images.remove(data)
+        bpy.data.collections.remove(collection)
+    for override in _view3d_overrides():
+        if override["area"].spaces.active.region_3d.use_clip_planes:
+            # Alt+B again: clearing use_clip_planes alone leaves the view cut
+            with bpy.context.temp_override(**override):
+                bpy.ops.view3d.clip_border("INVOKE_DEFAULT")
+
+
 # --- entry points ---------------------------------------------------------------------
 
 
@@ -267,9 +387,24 @@ def apply(vp):
         _apply_selection(components["selection"], index, missing)
         applied.append("selection")
 
-    for key, label in (("clipping_planes", "clipping planes"), ("lines", "lines"), ("bitmaps", "bitmaps")):
-        if vp.get(key):
-            warnings.append(f"Viewpoint {label} are not shown yet")
+    _clear_markup()  # what the previous viewpoint drew
+    if planes := vp.get("clipping_planes"):
+        if left_out := _apply_clipping(planes):
+            warnings.append(
+                f"{left_out} clipping plane(s) left out: Blender shows at most {MAX_CLIP_PLANES}, "
+                "and a plane needs a direction"
+            )
+        if left_out < len(planes):
+            applied.append("clipping planes")
+    if lines := vp.get("lines"):
+        _apply_lines(lines)
+        applied.append("lines")
+    if bitmaps := vp.get("bitmaps"):
+        skipped = _apply_bitmaps(bitmaps)
+        if skipped:
+            warnings.append(f"{skipped} bitmap(s) could not be shown")
+        if skipped < len(bitmaps):
+            applied.append("bitmaps")
     if missing:
         warnings.append(f"{len(set(missing))} component(s) not found in the loaded models")
     for _area, space in _view3d_spaces():
@@ -278,7 +413,9 @@ def apply(vp):
 
 
 def reset():
-    """Undo the visibility and colours set by viewpoints (the camera object stays)."""
+    """Undo the visibility, colours, clipping, lines and bitmaps set by viewpoints (the camera
+    object stays)."""
+    _clear_markup()
     for obj in bpy.data.objects:
         if SAVED_HIDE in obj:
             hidden, hide_viewport = obj[SAVED_HIDE]

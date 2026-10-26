@@ -4,6 +4,7 @@ Runs on a web server thread; everything touching bpy goes through the main-threa
 """
 
 import os
+import re
 import urllib.parse
 
 from . import blender_bridge, ifc_import, ifc_loader, viewpoint_apply
@@ -14,6 +15,26 @@ LOAD_TIMEOUT = 300  # seconds; loading a large model takes a while
 
 def _quote(value):
     return urllib.parse.quote(str(value), safe="")
+
+
+def _fetch_bitmaps(client, vp_url, vp):
+    """Download the viewpoint's bitmap images into the cache, noting each path as ``"file"``."""
+    folder = os.path.join(ifc_loader.CACHE_DIR, "bitmaps")
+    for bitmap in vp.get("bitmaps") or []:
+        guid = bitmap.get("guid")
+        if not guid:
+            continue
+        ext = "png" if bitmap.get("bitmap_type") == "png" else "jpg"
+        path = os.path.join(folder, re.sub(r"[^\w.-]", "_", str(guid)) + "." + ext)
+        try:
+            if not os.path.isfile(path):
+                resp = client.get_raw(f"{vp_url}/bitmaps/{_quote(guid)}")
+                os.makedirs(folder, exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(resp.content)
+            bitmap["file"] = path
+        except Exception as e:
+            logger.warning("Bitmap %s unavailable: %s", guid, e)
 
 
 def show(client, p):
@@ -29,6 +50,7 @@ def show(client, p):
                 vp["components"].update(client.get(f"{vp_url}/{part}") or {})
             except Exception as e:
                 logger.warning("Viewpoint %s unavailable: %s", part, e)
+    _fetch_bitmaps(client, vp_url, vp)
 
     # The topic's models stored on the server are added to the ones already loaded
     found = ifc_loader.locate(client, project_id, topic_id)
