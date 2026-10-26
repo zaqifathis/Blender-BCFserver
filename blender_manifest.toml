@@ -32,4 +32,5 @@ paths_exclude_pattern = [
   "style.md",
   "DECISIONS.md",
   "build.ps1",
+  "docs/",
 ]

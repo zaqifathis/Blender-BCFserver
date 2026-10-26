@@ -29,6 +29,9 @@ class BCF_PT_main_panel(bpy.types.Panel):
     bl_region_type = "UI"
     bl_category = "BCF"
 
+    def draw_header(self, context):
+        self.layout.label(icon=STATUS_ICONS[session.current.status])
+
     def draw(self, context):
         layout = self.layout
         props = context.scene.bcf_connect

@@ -1,8 +1,14 @@
-# BCFserver-Connect
+# <img src="docs/icon.svg" alt="" height="32"> BCFserver-Connect
 
 A Blender extension that connects Blender to a [BCF API](https://github.com/buildingSMART/BCF-API)
-server. Browse and edit BCF topics in a web panel served from Blender, show their viewpoints on IFC
-models loaded in the scene, and save the current Blender view back to the server as a new viewpoint.
+server (for example [BCFserver](https://github.com/zaqifathis/BCFserver)).
+
+Work on BCF issues without leaving Blender: a web panel served from Blender lists the server's
+topics, comments, documents and files, and lets you edit them. Open a topic's viewpoint and Blender
+loads its IFC models and sets up the camera, visibility, colours and clipping to match. Capture the
+current Blender view and post it back to the topic as a new viewpoint.
+
+![The BCF web panel showing a topic with comments, a viewpoint snapshot, documents and files](docs/web-panel.png)
 
 ## Features
 
