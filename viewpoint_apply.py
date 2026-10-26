@@ -177,12 +177,16 @@ def _apply_visibility(vis, index, missing):
         )
     ]
     exceptions = {o.name for o in _objects(vis.get("exceptions"), index, missing)}
+    listed = {c.get("ifc_guid") for c in vis.get("exceptions") or []}
 
     for obj in bpy.context.view_layer.objects:
         if not obj.get(ifc_import.GUID):
             continue
-        visible = next((v for cls, v in class_defaults if _is_a(obj, cls)), default)
-        if obj.name in exceptions:
+        hinted = next((v for cls, v in class_defaults if _is_a(obj, cls)), None)
+        visible = default if hinted is None else hinted
+        # Spaces, boundaries and openings follow an exception only when listed themselves: a
+        # storey aggregates its spaces, and excepting the storey must not bring them in view
+        if obj.name in exceptions and (hinted is None or obj[ifc_import.GUID] in listed):
             # Exceptions invert what the default and the hints decided (see the spec's example:
             # with SpacesVisible a listed space is hidden, even though DefaultVisibility is false)
             visible = not visible
