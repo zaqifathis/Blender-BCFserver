@@ -1,5 +1,6 @@
 import { DOCUMENT_PATH, ENDPOINTS, SNAPSHOT_PATH } from "../config/endpoints";
 import type {
+  CapturedViewpoint,
   Comment,
   CommentPost,
   CommentPut,
@@ -81,3 +82,7 @@ export const deleteViewpoint = (projectId: string, topicId: string, viewpointId:
 // Loads the topic's model if needed and applies the viewpoint to the Blender scene
 export const showViewpointInBlender = (projectId: string, topicId: string, viewpointId: string) =>
   request<ShowViewpointResult>(ENDPOINTS.showViewpoint, { project_id: projectId, topic_id: topicId, viewpoint_id: viewpointId });
+
+// Captures the Blender view (camera, visibility, colours, selection, clipping, snapshot) as a new viewpoint of the topic
+export const captureViewpointFromBlender = (projectId: string, topicId: string) =>
+  request<CapturedViewpoint>(ENDPOINTS.captureViewpoint, { project_id: projectId, topic_id: topicId });

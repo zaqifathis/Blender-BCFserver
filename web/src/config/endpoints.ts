@@ -6,6 +6,7 @@ export const ENDPOINTS = {
   comments: "comments.list",
   viewpoints: "viewpoints.list",
   showViewpoint: "viewpoints.show",
+  captureViewpoint: "viewpoints.capture",
   documentReferences: "document_references.list",
   documents: "documents.list",
   files: "files.list",

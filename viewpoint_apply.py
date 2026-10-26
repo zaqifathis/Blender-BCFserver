@@ -21,6 +21,12 @@ LINE_RADIUS = 0.03  # metres
 MAX_CLIP_PLANES = 6  # what a Blender viewport holds
 NO_CLIP = (0.0, 0.0, 1.0, 1e9)  # fills unused clip planes: keeps everything
 LARGE_LIST = 1000  # spec: alert the user above this many listed components
+# Classes whose visibility a view setup hint sets, instead of the default visibility
+VIEW_SETUP_HINTS = (
+    ("IfcSpace", "spaces_visible"),
+    ("IfcRelSpaceBoundary", "space_boundaries_visible"),
+    ("IfcOpeningElement", "openings_visible"),
+)
 
 
 # Original state of the objects a viewpoint touched, kept on the objects themselves so
@@ -157,7 +163,7 @@ def _set_hidden(obj, hidden):
         obj.hide_viewport = False  # Bonsai loads spaces (and openings) disabled in viewports
 
 
-def _is_a(obj, cls):
+def is_a(obj, cls):
     element = ifc_import.element(obj[ifc_import.GUID])
     # The stored class stands in when the model's file can no longer be read
     return element.is_a(cls) if element is not None else obj.get(ifc_import.CLASS) == cls
@@ -168,21 +174,14 @@ def _apply_visibility(vis, index, missing):
     default = bool(vis.get("default_visibility", False))
     hints = vis.get("view_setup_hints") or {}
     # Each hint acts as the default visibility for its own class only
-    class_defaults = [
-        (cls, bool(hints.get(key, False)))
-        for cls, key in (
-            ("IfcSpace", "spaces_visible"),
-            ("IfcRelSpaceBoundary", "space_boundaries_visible"),
-            ("IfcOpeningElement", "openings_visible"),
-        )
-    ]
+    class_defaults = [(cls, bool(hints.get(key, False))) for cls, key in VIEW_SETUP_HINTS]
     exceptions = {o.name for o in _objects(vis.get("exceptions"), index, missing)}
     listed = {c.get("ifc_guid") for c in vis.get("exceptions") or []}
 
     for obj in bpy.context.view_layer.objects:
         if not obj.get(ifc_import.GUID):
             continue
-        hinted = next((v for cls, v in class_defaults if _is_a(obj, cls)), None)
+        hinted = next((v for cls, v in class_defaults if is_a(obj, cls)), None)
         visible = default if hinted is None else hinted
         if obj.name in exceptions and hinted is None:
             visible = not visible
@@ -361,6 +360,23 @@ def _guids(vp):
     groups = [components.get("selection"), (components.get("visibility") or {}).get("exceptions")]
     groups += [c.get("components") for c in components.get("coloring") or []]
     return {c["ifc_guid"] for group in groups for c in group or [] if c.get("ifc_guid")}
+
+
+def models_holding(vp):
+    """Paths of the loaded models holding a component the viewpoint selects, colours or lists as visible."""
+    components = vp.get("components") or {}
+    visibility = components.get("visibility") or {}
+    groups = [components.get("selection")] + [c.get("components") for c in components.get("coloring") or []]
+    if not visibility.get("default_visibility", False):
+        groups.append(visibility.get("exceptions"))  # with everything hidden, the exceptions are what shows
+    index = ifc_import.objects_by_guid()
+    return {
+        obj[ifc_import.MODEL]
+        for group in groups
+        for c in group or []
+        for obj in index.get(c.get("ifc_guid"), ())
+        if obj.get(ifc_import.MODEL)
+    }
 
 
 def model_matches(vp):

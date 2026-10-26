@@ -1,10 +1,12 @@
-import type { Comment, Extensions, Topic } from "../api/types";
+import type { Comment, Extensions, Topic, Viewpoint } from "../api/types";
 import {
   COMMENT_CREATE_ACTION,
   COMMENT_DELETE_ACTION,
   COMMENT_UPDATE_ACTION,
   RELATED_TOPICS_UPDATE_ACTION,
   TOPIC_EDIT_ACTIONS,
+  VIEWPOINT_CREATE_ACTION,
+  VIEWPOINT_DELETE_ACTION,
 } from "../config/permissions";
 import { CLOSED_STATUSES } from "../config/topicStatus";
 
@@ -39,6 +41,9 @@ const topicActions = (topic: Topic | undefined, extensions?: Extensions) =>
 export const canAddComments = (topic: Topic, extensions?: Extensions) =>
   topicActions(topic, extensions).includes(COMMENT_CREATE_ACTION);
 
+export const canAddViewpoints = (topic: Topic, extensions?: Extensions) =>
+  topicActions(topic, extensions).includes(VIEWPOINT_CREATE_ACTION);
+
 export const canUpdateRelatedTopics = (topic: Topic | undefined, extensions?: Extensions) =>
   topicActions(topic, extensions).includes(RELATED_TOPICS_UPDATE_ACTION);
 
@@ -50,3 +55,6 @@ export const canEditComment = (comment: Comment, extensions?: Extensions) =>
 
 export const canDeleteComment = (comment: Comment, extensions?: Extensions) =>
   commentActions(comment, extensions).includes(COMMENT_DELETE_ACTION);
+
+export const canDeleteViewpoint = (viewpoint: Viewpoint, extensions?: Extensions) =>
+  (viewpoint.authorization?.viewpoint_actions ?? extensions?.viewpoint_actions ?? []).includes(VIEWPOINT_DELETE_ACTION);

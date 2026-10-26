@@ -56,9 +56,32 @@ export const STRINGS = {
     hasViewpoint: "📷 Viewpoint",
     showViewpoint: "Show this comment's viewpoint snapshot",
     showInBlender: "Show in Blender",
-    showingInBlender: "Showing…",
-    shownInBlender: (missing: number) =>
-      missing ? `Shown in Blender; ${missing} component(s) not found in the model` : "Shown in Blender",
+    addBlenderView: "Add Blender view",
+    addBlenderViewTitle: "Save the current Blender view as a new viewpoint of this topic",
+    addViewpointNotAllowed: "This topic does not allow adding viewpoints",
+    noViewpoints: "No viewpoints yet",
+    commentWithoutViewpoint: "This comment has no viewpoint",
+    deleteViewpoint: "Delete this viewpoint",
+    deleteViewpointNotAllowed: "Deleting this viewpoint is not allowed",
+    confirmDeleteViewpoint: "Delete this viewpoint? This cannot be undone.",
+    confirmDeleteViewpointUsed: (comments: string[]) =>
+      `${comments.length === 1 ? "This comment refers" : `These ${comments.length} comments refer`} to this viewpoint:\n\n` +
+      comments.map((c) => `• ${c}`).join("\n") +
+      `\n\nRemove the viewpoint from ${comments.length === 1 ? "it" : "them"} (the comment text stays) and delete the viewpoint? This cannot be undone.`,
+    // One comment in the delete confirmation: author, date and the start of its text
+    commentSummary: (author: string, date: string, text: string) => `${author}, ${date}: "${text}"`,
+    viewpointOnlyContent: "A comment without text refers to this viewpoint; delete that comment first",
+    unlinkViewpoint: "Remove the viewpoint from this comment (it stays in the topic)",
+    unlinkNotAllowed: "Editing this comment is not allowed",
+    unlinkNeedsText: "This comment has no text, so it must keep its viewpoint; delete the comment instead",
+    viewpointCommentLocked: "A comment you may not edit refers to this viewpoint",
+    noSnapshot: "No snapshot",
+    viewpointLabel: (n: number) => `Viewpoint ${n}`,
+    selectViewpoint: (n: number) => `Select viewpoint ${n}`,
+    commentViewpoint: "Viewpoint",
+    noViewpoint: "None",
+    newViewpoint: "+ New from Blender view",
+    newViewpointTitle: "Capture the current Blender view as a new viewpoint when saving",
     needsIfc: (name?: string) =>
       `The model${name ? ` ${name}` : ""} is not stored on the BCF server. Download it and load it in Blender ("Load IFC Model" in the BCF panel), then try again.`,
     selectComment: "Select this comment",

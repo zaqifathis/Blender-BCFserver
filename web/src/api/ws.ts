@@ -1,5 +1,15 @@
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
+// A failed request; status is the BCF server's HTTP status when the BCF API call itself failed
+export class RequestError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+  }
+}
+
 let socket: WebSocket | null = null;
 let nextId = 1;
 const pending = new Map<number, Pending>();
@@ -20,12 +30,12 @@ export function connect(): void {
   socket = ws;
   ws.onopen = () => setConnected(true);
   ws.onmessage = (ev) => {
-    const msg = JSON.parse(ev.data as string) as { id: number; ok: boolean; data?: unknown; error?: string };
+    const msg = JSON.parse(ev.data as string) as { id: number; ok: boolean; data?: unknown; error?: string; status?: number };
     const p = pending.get(msg.id);
     if (!p) return;
     pending.delete(msg.id);
     if (msg.ok) p.resolve(msg.data);
-    else p.reject(new Error(msg.error ?? "Request failed"));
+    else p.reject(new RequestError(msg.error ?? "Request failed", msg.status));
   };
   ws.onclose = () => {
     setConnected(false);

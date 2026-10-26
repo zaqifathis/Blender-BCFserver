@@ -1,0 +1,43 @@
+.section {
+  margin: 0 0 var(--space-7);
+}
+
+/* Fixed shape while the snapshot loads, so the documents below do not jump */
+.frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.tools {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.tools > button {
+  height: var(--control-size);
+  box-shadow: var(--shadow);
+}
+
+.thumbs {
+  margin-top: var(--space-4);
+}

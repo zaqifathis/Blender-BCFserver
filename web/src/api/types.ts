@@ -37,6 +37,7 @@ export interface Extensions {
   project_actions?: string[];
   topic_actions?: string[];
   comment_actions?: string[];
+  viewpoint_actions?: string[];
 }
 
 // Body of a topic POST (BCF 3.0 topic_POST.json): only title is required, unset fields are left out
@@ -68,15 +69,15 @@ export interface TopicPut {
   bim_snippet?: object;
 }
 
-// Body of a comment POST (BCF 3.0 comment_POST.json); viewpoint_guid is left out when the comment has none
+// Body of a comment POST (BCF 3.0 comment_POST.json): text, viewpoint or both; an unset one is left out
 export interface CommentPost {
-  comment: string;
+  comment?: string;
   viewpoint_guid?: string;
 }
 
 // Body of a comment PUT (BCF 3.0 comment_PUT.json): replaces the comment, so its viewpoint is sent back too
 export interface CommentPut {
-  comment: string;
+  comment?: string;
   viewpoint_guid: string | null;
 }
 
@@ -105,6 +106,16 @@ export interface RelatedTopic {
 
 export interface Viewpoint {
   guid: string;
+  // Sort order; servers may leave it out
+  index?: number | null;
+  // Only when the server includes authorization; overrides the project's viewpoint_actions
+  authorization?: { viewpoint_actions?: string[] };
+}
+
+// Viewpoint made from the Blender view and added to the topic, with what it could not hold
+export interface CapturedViewpoint {
+  viewpoint: Viewpoint;
+  warnings: string[];
 }
 
 // Outcome of showing a viewpoint in Blender: applied, or the model must be loaded by hand first

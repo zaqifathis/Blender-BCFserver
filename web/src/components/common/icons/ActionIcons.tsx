@@ -26,3 +26,19 @@ export const DeleteIcon = () => (
     <path d="M5 12h14" />
   </Icon>
 );
+
+// Show in Blender
+export const EyeIcon = () => (
+  <Icon>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+);
+
+// Capture the Blender view as a new viewpoint
+export const AddViewIcon = () => (
+  <Icon>
+    <path d="M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M12 10v6M9 13h6" />
+  </Icon>
+);

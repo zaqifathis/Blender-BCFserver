@@ -29,10 +29,6 @@
   min-width: 0;
 }
 
-.besideComments {
-  grid-row: 2;
-}
-
 /* Media queries cannot read custom properties, so the breakpoint stays a literal */
 @media (max-width: 1100px) {
   .article {

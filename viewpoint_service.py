@@ -1,4 +1,5 @@
 """Show a server viewpoint in Blender: fetch it, make sure its IFC models are loaded, apply it.
+Or the other way: capture the Blender view and add it to a topic.
 
 Runs on a web server thread; everything touching bpy goes through the main-thread bridge.
 """
@@ -7,7 +8,7 @@ import os
 import re
 import urllib.parse
 
-from . import blender_bridge, ifc_import, ifc_loader, viewpoint_apply
+from . import blender_bridge, ifc_import, ifc_loader, viewpoint_apply, viewpoint_capture
 from .log import logger
 
 LOAD_TIMEOUT = 300  # seconds; loading a large model takes a while
@@ -40,6 +41,7 @@ def _fetch_bitmaps(client, vp_url, vp):
 def show(client, p):
     """Reply ``{"status": "applied", ...summary}`` or ``{"status": "needs_ifc", "external": {...}}``."""
     project_id, topic_id = p["project_id"], p["topic_id"]
+    logger.info("Showing viewpoint %s in Blender", p["viewpoint_id"])
     vp_url = f"/projects/{_quote(project_id)}/topics/{_quote(topic_id)}/viewpoints/{_quote(p['viewpoint_id'])}"
     vp = client.get(vp_url)
     if "components" not in vp:
@@ -80,6 +82,13 @@ def show(client, p):
     ]
     if not topic_paths and not blender_bridge.run_on_main(viewpoint_apply.model_matches, vp):
         return {"status": "needs_ifc", **found}
+    if topic_paths:
+        # A model holding what the viewpoint selects, colours or shows is the topic's too, even when the
+        # header does not name it (e.g. an element selected in another model)
+        keys = {ifc_import.key(path) for path in topic_paths}
+        topic_paths += [
+            path for path in blender_bridge.run_on_main(viewpoint_apply.models_holding, vp) if ifc_import.key(path) not in keys
+        ]
 
     # The other loaded models are hidden, unless the topic's own could not be told apart
     summary = blender_bridge.run_on_main(viewpoint_apply.apply, vp, topic_paths or None)
@@ -87,5 +96,48 @@ def show(client, p):
         summary["warnings"].insert(0, "Shown on the loaded models, which the topic does not name")
     elif unloaded := sorted(n for k, n in names.items() if k not in loaded_names):
         summary["warnings"].insert(0, f"Not loaded: {', '.join(unloaded)}")
+    # The web panel only shows errors, so progress and results go to the BCF Log
     logger.info("Viewpoint applied: %s", ", ".join(summary["applied"]) or "nothing")
+    for warning in summary["warnings"]:
+        logger.warning(warning)
     return {"status": "applied", **summary}
+
+
+def _add_topic_files(client, topic_url, models):
+    """Name the models in view in the topic's header files, where BCF keeps the models a topic uses; showing
+    a viewpoint hides the loaded models the header does not name. Returns messages for the web UI.
+
+    The header belongs to the whole topic, so its other viewpoints show these models too.
+    """
+    header = client.get(f"{topic_url}/files") or []
+    names = {(f.get("filename") or "").lower() for f in header}
+    projects = {f.get("ifc_project") for f in header if f.get("ifc_project")}
+    missing = [
+        m
+        for m in models
+        if not ({m["name"].lower(), os.path.basename(m["path"]).lower()} & names or m["ifc_project"] in projects)
+    ]
+    if not missing:
+        return []
+    added = ", ".join(m["name"] for m in missing)
+    entries = [{"filename": m["name"], **({"ifc_project": m["ifc_project"]} if m["ifc_project"] else {})} for m in missing]
+    try:
+        client.send("PUT", f"{topic_url}/files", header + entries)  # PUT replaces the list, so the old entries go along
+    except Exception as e:
+        logger.warning("Topic files not updated: %s", e)
+        return [f"{added} could not be added to the topic's files, so showing this viewpoint will hide it"]
+    logger.info("Added to the topic files: %s", added)
+    return [f"Added {added} to the topic's files"]
+
+
+def create(client, p):
+    """Add the Blender view to the topic; reply ``{"viewpoint": <server's viewpoint>, "warnings": [...]}``."""
+    logger.info("Capturing the Blender view")
+    vp, warnings, models = blender_bridge.run_on_main(viewpoint_capture.capture)
+    topic_url = f"/projects/{_quote(p['project_id'])}/topics/{_quote(p['topic_id'])}"
+    created = client.send("POST", f"{topic_url}/viewpoints", vp)
+    logger.info("Viewpoint added from Blender: %s", (created or {}).get("guid"))
+    warnings += _add_topic_files(client, topic_url, models)
+    for warning in warnings:
+        logger.warning(warning)  # the web panel only shows errors; this goes to the BCF Log
+    return {"viewpoint": created, "warnings": warnings}

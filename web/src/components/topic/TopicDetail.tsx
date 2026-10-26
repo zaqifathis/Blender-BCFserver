@@ -1,10 +1,11 @@
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { Extensions, Topic } from "../../api/types";
 import { STRINGS } from "../../config/strings";
 import { isSettled } from "../../hooks/useAsync";
+import { useClickOutside } from "../../hooks/useClickOutside";
 import { useCommentEditing } from "../../hooks/useCommentEditing";
 import { useTopicDetail } from "../../hooks/useTopicDetail";
-import { cx } from "../../lib/format";
+import { canAddViewpoints } from "../../lib/topic";
 import { ActionButtons } from "../common/ActionButtons";
 import { StatusMessage } from "../common/StatusMessage";
 import { CommentsSection } from "./CommentsSection";
@@ -14,8 +15,7 @@ import { RelatedTopicsSection } from "./RelatedTopicsSection";
 import styles from "./TopicDetail.module.css";
 import { TopicBadges } from "./TopicBadges";
 import { TopicFacts } from "./TopicFacts";
-import { ShowInBlender } from "./ShowInBlender";
-import { ViewpointSnapshot } from "./ViewpointSnapshot";
+import { ViewpointsSection } from "./ViewpointsSection";
 
 type Props = {
   projectId: string;
@@ -31,9 +31,8 @@ type Props = {
   onDelete: () => void;
 };
 
-// Mount once per topic (keyed by guid); stays hidden until comments, viewpoints, documents, files, related topics
-// and snapshot are in,
-// so the layout does not shift as each part arrives
+// Mount once per topic (keyed by guid); stays hidden until comments, viewpoints, documents, files and related topics
+// are in, so the layout does not shift as each part arrives
 export function TopicDetail({
   projectId,
   topic,
@@ -46,28 +45,31 @@ export function TopicDetail({
   onEdit,
   onDelete,
 }: Props) {
-  const { comments, viewpoints, documentReferences, documents, files, relatedTopics, reloadComments } = useTopicDetail(
+  const { comments, viewpoints, documentReferences, documents, files, relatedTopics, reloadComments, reloadViewpoints } = useTopicDetail(
     projectId,
     topic.guid,
     newestFirst,
   );
-  // Snapshot outcome per viewpoint: true once shown, false when it has none
-  const [snapshots, setSnapshots] = useState<Record<string, boolean>>({});
   const [commentId, setCommentId] = useState<string>();
   const selectedComment = comments.data?.find((c) => c.guid === commentId);
-  const commentEditing = useCommentEditing(projectId, topic.guid, selectedComment, setCommentId, reloadComments);
-  const firstViewpoint = viewpoints.data?.[0];
-  // The selected comment's viewpoint replaces the topic's first one
-  const viewpointId = selectedComment?.viewpoint_guid ?? firstViewpoint?.guid;
-  const hasSnapshot = Boolean(viewpointId) && snapshots[viewpointId!] !== false;
+  // A click anywhere but the comments and the viewpoint clears the selected comment, back to the topic's viewpoints
+  const commentsRef = useRef<HTMLElement>(null);
+  const viewpointRef = useRef<HTMLElement>(null);
+  useClickOutside([commentsRef, viewpointRef], Boolean(commentId), () => setCommentId(undefined));
+  const commentEditing = useCommentEditing(projectId, topic.guid, selectedComment, setCommentId, reloadComments, reloadViewpoints);
+  // The thumbnail picked below the large snapshot; the topic's first viewpoint until then
+  const [pickedViewpointId, setPickedViewpointId] = useState<string>();
+  const viewpointList = viewpoints.data ?? [];
+  const topicViewpointId = viewpointList.some((vp) => vp.guid === pickedViewpointId) ? pickedViewpointId : viewpointList[0]?.guid;
+  // A selected comment shows its own viewpoint only
+  const viewpointId = selectedComment ? selectedComment.viewpoint_guid : topicViewpointId;
   const ready =
     isSettled(comments) &&
     isSettled(viewpoints) &&
     isSettled(documentReferences) &&
     isSettled(documents) &&
     isSettled(files) &&
-    isSettled(relatedTopics) &&
-    (!firstViewpoint || firstViewpoint.guid in snapshots);
+    isSettled(relatedTopics);
   const { actions } = STRINGS;
   const allowed = (title: string) => (canEdit ? title : actions.notAllowed);
 
@@ -89,27 +91,42 @@ export function TopicDetail({
         </header>
         <CommentsSection
           class={styles.comments}
+          containerRef={commentsRef}
+          projectId={projectId}
           topic={topic}
           extensions={extensions}
           comments={comments}
+          viewpoints={viewpointList}
           newestFirst={newestFirst}
           onToggleOrder={onToggleOrder}
           selectedId={commentId}
           onSelect={setCommentId}
           editing={commentEditing}
         />
-        {/* Without a snapshot, documents and files start level with the comments */}
-        <aside class={cx(styles.aside, !hasSnapshot && styles.besideComments)}>
-          {viewpointId && (
-            <ViewpointSnapshot
-              key={viewpointId}
-              projectId={projectId}
-              topicId={topic.guid}
-              viewpointId={viewpointId}
-              onSettled={(shown) => setSnapshots((s) => ({ ...s, [viewpointId]: shown }))}
-            />
-          )}
-          {viewpointId && <ShowInBlender key={viewpointId} projectId={projectId} topicId={topic.guid} viewpointId={viewpointId} />}
+        <aside class={styles.aside}>
+          <ViewpointsSection
+            projectId={projectId}
+            topicId={topic.guid}
+            extensions={extensions}
+            viewpoints={viewpointList}
+            comments={comments.data ?? []}
+            shownId={viewpointId}
+            selectedComment={selectedComment}
+            containerRef={viewpointRef}
+            onPick={setPickedViewpointId}
+            canAdd={canAddViewpoints(topic, extensions)}
+            onAdded={(id) => {
+              setCommentId(undefined);
+              setPickedViewpointId(id);
+              reloadViewpoints();
+            }}
+            onDeleted={() => {
+              setCommentId(undefined);
+              reloadViewpoints();
+              reloadComments();
+            }}
+            onUnlinked={reloadComments}
+          />
           <DocumentsSection projectId={projectId} references={documentReferences} documents={documents.data ?? []} />
           <FilesSection files={files} />
           <RelatedTopicsSection related={relatedTopics} topics={topics} onSelect={onSelectTopic} />

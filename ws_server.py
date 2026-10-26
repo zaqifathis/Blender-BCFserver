@@ -3,7 +3,8 @@
 Stdlib only, loopback only, no bpy. The browser never sees the OAuth token: requests
 come in over the WebSocket and are forwarded to the BCF API with the session's client.
 
-Protocol: request ``{"id", "type", "payload"}``, reply ``{"id", "ok", "data" | "error"}``.
+Protocol: request ``{"id", "type", "payload"}``, reply ``{"id", "ok", "data" | "error"}``; a failed BCF API
+call also carries its HTTP ``"status"`` (e.g. 409 when deleting a viewpoint a comment still refers to).
 """
 
 import base64
@@ -86,11 +87,18 @@ def _delete_topic(client, p):
 
 
 def _create_comment(client, p):
-    return client.send("POST", f"{_topic_url(p)}/comments", p["comment"])
+    reply = client.send("POST", f"{_topic_url(p)}/comments", p["comment"])
+    viewpoint = p["comment"].get("viewpoint_guid")
+    logger.info("Comment added, %s", f"viewpoint {viewpoint}" if viewpoint else "no viewpoint")
+    return reply
 
 
 def _update_comment(client, p):
-    return client.send("PUT", f"{_topic_url(p)}/comments/{_quote(p['comment_id'])}", p["comment"])
+    reply = client.send("PUT", f"{_topic_url(p)}/comments/{_quote(p['comment_id'])}", p["comment"])
+    # The web panel shows only errors; results go to the BCF Log (this is also how a viewpoint is unlinked)
+    viewpoint = p["comment"].get("viewpoint_guid")
+    logger.info("Comment %s saved, %s", p["comment_id"], f"viewpoint {viewpoint}" if viewpoint else "no viewpoint")
+    return reply
 
 
 def _delete_comment(client, p):
@@ -110,7 +118,9 @@ def _create_viewpoint(client, p):
 
 
 def _delete_viewpoint(client, p):
-    return client.send("DELETE", f"{_topic_url(p)}/viewpoints/{_quote(p['viewpoint_id'])}")
+    reply = client.send("DELETE", f"{_topic_url(p)}/viewpoints/{_quote(p['viewpoint_id'])}")
+    logger.info("Viewpoint %s deleted", p["viewpoint_id"])
+    return reply
 
 
 def _show_viewpoint(client, p):
@@ -119,9 +129,16 @@ def _show_viewpoint(client, p):
     return viewpoint_service.show(client, p)
 
 
+def _capture_viewpoint(client, p):
+    from . import viewpoint_service
+
+    return viewpoint_service.create(client, p)
+
+
 HANDLERS = {
     "projects.list": _projects,
     "viewpoints.show": _show_viewpoint,
+    "viewpoints.capture": _capture_viewpoint,
     "topics.list": _topics,
     "extensions.get": _extensions,
     "comments.list": _comments,
@@ -348,7 +365,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return {"id": req_id, "ok": True, "data": handler(client, req.get("payload") or {})}
         except Exception as e:
             logger.warning("Web request failed: %s", e)
-            return {"id": req_id, "ok": False, "error": str(e)}
+            reply = {"id": req_id, "ok": False, "error": str(e)}
+            status = getattr(getattr(e, "response", None), "status_code", None)
+            if status is not None:
+                reply["status"] = status
+            return reply
 
 
 class _Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
